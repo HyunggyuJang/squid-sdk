@@ -16,6 +16,8 @@ specifiers:
   '@rush-temp/data-test': file:./projects/data-test.tgz
   '@rush-temp/e2e-test-project': file:./projects/e2e-test-project.tgz
   '@rush-temp/e2e-test-suite': file:./projects/e2e-test-suite.tgz
+  '@rush-temp/ethereum-erc20-evm': file:./projects/ethereum-erc20-evm.tgz
+  '@rush-temp/evm-processor': file:./projects/evm-processor.tgz
   '@rush-temp/evm-typegen': file:./projects/evm-typegen.tgz
   '@rush-temp/gear-nft': file:./projects/gear-nft.tgz
   '@rush-temp/gql-test-client': file:./projects/gql-test-client.tgz
@@ -51,6 +53,7 @@ specifiers:
   '@rush-temp/util-internal-hex': file:./projects/util-internal-hex.tgz
   '@rush-temp/util-internal-http-server': file:./projects/util-internal-http-server.tgz
   '@rush-temp/util-internal-json': file:./projects/util-internal-json.tgz
+  '@rush-temp/util-internal-json-request': file:./projects/util-internal-json-request.tgz
   '@rush-temp/util-internal-prometheus-server': file:./projects/util-internal-prometheus-server.tgz
   '@rush-temp/util-internal-read-lines': file:./projects/util-internal-read-lines.tgz
   '@rush-temp/util-internal-service-manager': file:./projects/util-internal-service-manager.tgz
@@ -124,6 +127,8 @@ dependencies:
   '@rush-temp/data-test': file:projects/data-test.tgz
   '@rush-temp/e2e-test-project': file:projects/e2e-test-project.tgz_supports-color@8.1.1
   '@rush-temp/e2e-test-suite': file:projects/e2e-test-suite.tgz_supports-color@8.1.1
+  '@rush-temp/ethereum-erc20-evm': file:projects/ethereum-erc20-evm.tgz_supports-color@8.1.1
+  '@rush-temp/evm-processor': file:projects/evm-processor.tgz
   '@rush-temp/evm-typegen': file:projects/evm-typegen.tgz
   '@rush-temp/gear-nft': file:projects/gear-nft.tgz_f3112c9ccceff8ba6e1ae691573f7615
   '@rush-temp/gql-test-client': file:projects/gql-test-client.tgz_graphql@15.8.0
@@ -159,6 +164,7 @@ dependencies:
   '@rush-temp/util-internal-hex': file:projects/util-internal-hex.tgz
   '@rush-temp/util-internal-http-server': file:projects/util-internal-http-server.tgz
   '@rush-temp/util-internal-json': file:projects/util-internal-json.tgz
+  '@rush-temp/util-internal-json-request': file:projects/util-internal-json-request.tgz
   '@rush-temp/util-internal-prometheus-server': file:projects/util-internal-prometheus-server.tgz
   '@rush-temp/util-internal-read-lines': file:projects/util-internal-read-lines.tgz
   '@rush-temp/util-internal-service-manager': file:projects/util-internal-service-manager.tgz
@@ -4298,6 +4304,54 @@ packages:
       - supports-color
     dev: false
 
+  file:projects/ethereum-erc20-evm.tgz_supports-color@8.1.1:
+    resolution: {integrity: sha512-HghB1+io/aUS24YrjlM8XV1CILpwedyVlJ1AKaiMO1X3JUfEElnomrKkYwu4NMUepkI7P+VMvyflNnvwBJCGrg==, tarball: file:projects/ethereum-erc20-evm.tgz}
+    id: file:projects/ethereum-erc20-evm.tgz
+    name: '@rush-temp/ethereum-erc20-evm'
+    version: 0.0.0
+    dependencies:
+      '@types/node': 16.11.41
+      dotenv: 10.0.0
+      ethers: 5.6.9
+      pg: 8.7.3
+      typeorm: 0.3.6_pg@8.7.3+supports-color@8.1.1
+      typescript: 4.7.4
+    transitivePeerDependencies:
+      - '@google-cloud/spanner'
+      - '@sap/hana-client'
+      - better-sqlite3
+      - bufferutil
+      - hdb-pool
+      - ioredis
+      - mongodb
+      - mssql
+      - mysql2
+      - oracledb
+      - pg-native
+      - pg-query-stream
+      - redis
+      - sql.js
+      - sqlite3
+      - supports-color
+      - ts-node
+      - typeorm-aurora-data-api-driver
+      - utf-8-validate
+    dev: false
+
+  file:projects/evm-processor.tgz:
+    resolution: {integrity: sha512-fwKMnOjRVvitbnqWeXsQy55bq+iEQz9vkTGGWoWAD4PSGR4x1FOaEf6OfDHhTwT00617l+sqQRu21B5NGkQyaA==, tarball: file:projects/evm-processor.tgz}
+    name: '@rush-temp/evm-processor'
+    version: 0.0.0
+    dependencies:
+      '@types/mocha': 9.1.1
+      '@types/node': 16.11.41
+      expect: 27.5.1
+      fast-check: 2.25.0
+      mocha: 9.2.2
+      prom-client: 14.0.1
+      typescript: 4.7.4
+    dev: false
+
   file:projects/evm-typegen.tgz:
     resolution: {integrity: sha512-SHdZF2/+3DfQUW6sFLcA5L18Uf48CDJmsnqVPUyVhzXSr6Y1QlcvxXadDcXIEoKTZ8hF1+04s/bQApip2UbyoA==, tarball: file:projects/evm-typegen.tgz}
     name: '@rush-temp/evm-typegen'
@@ -4868,6 +4922,19 @@ packages:
       '@types/stoppable': 1.1.1
       stoppable: 1.1.0
       typescript: 4.7.4
+    dev: false
+
+  file:projects/util-internal-json-request.tgz:
+    resolution: {integrity: sha512-S37mYNLlP3CkEnocvf64apHtVMZiIXSaN2+nI3KfB2v3xoE0JSE1HevsK7F0/6qviRuvXkSntYrjLp/C5RRXIg==, tarball: file:projects/util-internal-json-request.tgz}
+    name: '@rush-temp/util-internal-json-request'
+    version: 0.0.0
+    dependencies:
+      '@types/node': 16.11.41
+      '@types/node-fetch': 2.6.2
+      node-fetch: 2.6.7
+      typescript: 4.7.4
+    transitivePeerDependencies:
+      - encoding
     dev: false
 
   file:projects/util-internal-json.tgz:
