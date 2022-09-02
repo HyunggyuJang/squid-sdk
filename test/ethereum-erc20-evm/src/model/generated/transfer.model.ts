@@ -1,7 +1,6 @@
 import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_} from "typeorm"
 import * as marshal from "./marshal"
-import {Token} from "./token.model"
-import {Owner} from "./owner.model"
+import {Account} from "./account.model"
 
 @Entity_()
 export class Transfer {
@@ -12,24 +11,26 @@ export class Transfer {
   @PrimaryColumn_()
   id!: string
 
-  @Index_()
-  @ManyToOne_(() => Token, {nullable: false})
-  token!: Token
+  @Column_("int4", {nullable: false})
+  blockNumber!: number
 
-  @Index_()
-  @ManyToOne_(() => Owner, {nullable: true})
-  from!: Owner | undefined | null
-
-  @Index_()
-  @ManyToOne_(() => Owner, {nullable: true})
-  to!: Owner | undefined | null
-
-  @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
-  timestamp!: bigint
-
-  @Column_("integer", {nullable: false})
-  block!: number
+  @Column_("timestamp with time zone", {nullable: false})
+  timestamp!: Date
 
   @Column_("text", {nullable: false})
-  transactionHash!: string
+  txHash!: string
+
+  @Index_()
+  @ManyToOne_(() => Account, {nullable: true})
+  from!: Account
+
+  @Index_()
+  @ManyToOne_(() => Account, {nullable: true})
+  to!: Account
+
+  @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+  amount!: bigint
+
+  @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+  gas!: bigint
 }
