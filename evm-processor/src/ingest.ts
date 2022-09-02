@@ -267,7 +267,7 @@ function tryMapGatewayBlock(block: gw.BatchBlock): BlockData {
 
     for (let go of block.logs) {
         let log = assertNotNull(logs.get(go.logIndex)) as EvmLog
-        if (go.transactionIndex) {
+        if (go.transactionIndex != null) {
             log.transaction = assertNotNull(transactions.get(go.transactionIndex)) as EvmTransaction
         }
         items.push({
