@@ -1,7 +1,7 @@
 import {EvmTopicSet} from "./dataHandlers"
 import {EvmBlock} from "./evm"
 
-export interface StatusRequest {
+export interface StatusResponse {
     parquetBlockNumber: number
     dbMaxBlockNumber: number
     dbMinBlockNumber: number
@@ -9,8 +9,8 @@ export interface StatusRequest {
 
 
 export interface BatchRequest {
-    fromBlock: number
-    toBlock: number
+    fromBlock?: number
+    toBlock?: number
     addresses?: AddressRequest[]
     fieldSelection?: FieldSelection
 }

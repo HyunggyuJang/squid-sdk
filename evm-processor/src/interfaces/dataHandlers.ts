@@ -96,4 +96,4 @@ export interface LogOptions extends BlockRangeOption {
 }
 
 
-export type EvmTopicSet = [string[] | null, string[] | null, string[] | null, string[] | null]
+export type EvmTopicSet = string[][]

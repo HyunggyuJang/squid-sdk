@@ -118,7 +118,7 @@ export class EvmBatchProcessor<Item extends {kind: string, address: string} = Lo
         let req = new PlainBatchRequest()
         req.addresses.push({
             address: contractAddress.toLowerCase(),
-            topics: options?.filter || [null, null, null, null],
+            topics: options?.filter || [],
         })
         req.logsRequest = options?.data || {}
         this.add(req, options?.range)

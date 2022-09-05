@@ -1,12 +1,13 @@
 import {Logger} from "@subsquid/logger"
 import {ResilientRpcClient} from "@subsquid/rpc-client/lib/resilient"
 import {def} from "@subsquid/util-internal"
-import {graphqlRequest} from "@subsquid/util-internal-json-request"
+import {jsonRequest} from "@subsquid/util-internal-json-request"
 import {Batch, getBlocksCount} from "../batch/generic"
 import {BatchRequest} from "../batch/request"
 import {Chain} from "../chain"
 import {BlockData, DataBatch, Ingest} from "../ingest"
 import {Database} from "../interfaces/db"
+import {StatusResponse} from "../interfaces/gateway"
 import {Metrics} from "../metrics"
 import {timeInterval, withErrorContext} from "../util/misc"
 import {Range} from "../util/range"
@@ -100,30 +101,7 @@ export class Runner<S, R extends BatchRequest> {
                 archiveQuery
             }, 'request')
 
-            let status = await graphqlRequest({
-                headers: {
-                    'x-squid-id': this.getId(),
-                },
-                method: 'GET',
-                url: archiveUrl + '/status',
-                query: archiveQuery,
-                timeout: 60_000,
-                retry: {
-                    log: (err, errorsInRow, backoff) => {
-                        this.metrics.registerArchiveRetry(archiveUrl, errorsInRow)
-                        log.warn({
-                            archiveRequestId,
-                            archiveQuery,
-                            backoff,
-                            reason: err.message
-                        }, 'retry')
-                    }
-                }
-            }).catch(
-                withErrorContext({archiveUrl, archiveRequestId, archiveQuery})
-            )
-
-            let response: any = archiveQuery.length > 0 ? await graphqlRequest({
+            let response = await jsonRequest({
                 headers: {
                     'x-squid-id': this.getId(),
                 },
@@ -143,7 +121,7 @@ export class Runner<S, R extends BatchRequest> {
                 }
             }).catch(
                 withErrorContext({archiveUrl, archiveRequestId, archiveQuery})
-            ) : {}
+            )
 
             this.metrics.registerArchiveResponse(archiveUrl)
             log.debug({
@@ -152,7 +130,54 @@ export class Runner<S, R extends BatchRequest> {
                 archiveResponse: log.isTrace() ? response : undefined
             }, 'response')
 
-            return {status, batch: response.data}
+            return response
+        }
+    }
+
+    protected fetchArchiveHeight(): () => Promise<any> {
+        const archiveUrl = this.config.getArchiveEndpoint()
+
+        let log = this.config.getLogger().child('archive-request', {archiveUrl})
+        let counter = 0
+
+        return async () => {
+            let archiveRequestId = counter
+            counter = (counter + 1) % 1000
+
+            log.debug({
+                archiveRequestId,
+            }, 'request')
+
+            let response = await jsonRequest({
+                headers: {
+                    'x-squid-id': this.getId(),
+                },
+                method: 'GET',
+                url: archiveUrl + '/status',
+                query: '',
+                timeout: 60_000,
+                retry: {
+                    log: (err, errorsInRow, backoff) => {
+                        this.metrics.registerArchiveRetry(archiveUrl, errorsInRow)
+                        log.warn({
+                            archiveRequestId,
+                            backoff,
+                            reason: err.message
+                        }, 'retry')
+                    }
+                }
+            }).catch(
+                withErrorContext({archiveUrl, archiveRequestId})
+            )
+
+            this.metrics.registerArchiveResponse(archiveUrl)
+            log.debug({
+                archiveUrl,
+                archiveRequestId,
+                archiveResponse: log.isTrace() ? response : undefined
+            }, 'response')
+
+            return response
         }
     }
 
@@ -202,12 +227,13 @@ export class Runner<S, R extends BatchRequest> {
 
         let ingest = new Ingest({
             archiveRequest: this.archiveRequest(),
+            fetchArchiveHeight: this.fetchArchiveHeight(),
             batches: this.config.createBatches(blockRange),
             batchSize: this.config.getOptions().batchSize || 200
         })
 
         this.metrics.updateProgress(
-            await ingest.fetchArchiveHeight(),
+            await this.fetchArchiveHeight()(),
             getBlocksCount(this.wholeRange(), 0, ingest.getLatestKnownArchiveHeight()),
             getBlocksCount(this.wholeRange(), heightAtStart + 1, ingest.getLatestKnownArchiveHeight()),
         )

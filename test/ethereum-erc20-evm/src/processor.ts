@@ -8,7 +8,7 @@ import {Account, Token, Transfer} from "./model"
 const processor = new EvmBatchProcessor()
     .setBatchSize(1000)
     .addLog('0xdac17f958d2ee523a2206206994597c13d831ec7',
-        {range: {from: 10000555}}
+        {range: {from: 4634748}}
     )
 
 

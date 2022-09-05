@@ -18,7 +18,7 @@ export interface JSONRequest {
 }
 
 
-export async function graphqlRequest<T>(req: JSONRequest): Promise<T> {
+export async function jsonRequest<T>(req: JSONRequest): Promise<T> {
     let url = req.url
     let method = req.method || 'POST'
     let headers: Record<string, string> = {
