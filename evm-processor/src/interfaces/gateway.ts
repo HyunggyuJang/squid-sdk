@@ -23,8 +23,8 @@ export interface AddressRequest {
 
 export interface FieldSelection {
     block?: BlockFieldSelection,
-    transaction?: LogFieldSelection,
-    log?: TransactionFieldSelection,
+    transaction?: TransactionFieldSelection,
+    log?: LogFieldSelection,
 }
 
 export type BlockFieldSelection = {[P in keyof Block]?: boolean}
@@ -53,13 +53,11 @@ export interface Block {
     size: bigint
     gasLimit: string
     gasUsed: string
-    timestamp: bigint
+    timestamp: number
 }
 
 
 export interface Transaction {
-    blockHash: string,
-    blockNumber: bigint
     source: string,
     gas: bigint,
     gasPrice: bigint,
@@ -78,14 +76,11 @@ export interface Transaction {
 
 
 export interface Log {
-    blockHash: string,
-    blockNumber: bigint
     address: string,
     data: string,
     logIndex: bigint,
     removed: boolean,
     topics: string[],
-    transactionHash: string,
     transactionIndex: bigint,
 }
 
@@ -123,20 +118,15 @@ export const FULL_BLOCK_SELECTION: Required<BlockFieldSelection> = {
 }
 
 export const FULL_LOG_SELECTION: Required<LogFieldSelection> = {
-    blockHash: true,
-    blockNumber: true,
     address: true,
     data: true,
     logIndex: true,
     removed: true,
     topics: true,
-    transactionHash: true,
     transactionIndex: true,
 }
 
 export const FULL_TRANSACTION_SELECTION: Required<TransactionFieldSelection> = {
-    blockHash: true,
-    blockNumber: true,
     source: true,
     gas: true,
     gasPrice: true,

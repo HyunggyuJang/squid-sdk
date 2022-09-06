@@ -11,9 +11,10 @@ function getItem<I>(cb: (item: I) => void) {
 
 
 new EvmBatchProcessor()
-.addLog("0xaadsfadfasdfasdfa", {data: {log: {topics: true}}})
 .addLog("0xaadsfadfasdfasdfa", {data: {log: true}})
+.addLog("0xaadsfadfasdfasdfa", {data: {log: {topics: true}}})
 .run(db, getItem(item => {
     if (item.address == '0xaadsfadfasdfasdfa') {
+        item.log
     }
 }))

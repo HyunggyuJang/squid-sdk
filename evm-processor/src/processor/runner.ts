@@ -302,9 +302,6 @@ export class Runner<S, R extends BatchRequest> {
 }
 
 
-type Pack = {chain: Chain, blocks: BlockData[]}
-
-
 function getItemsCount(blocks: BlockData[]): number {
     let count = 1
     for (let i = 0; i < blocks.length; i++) {

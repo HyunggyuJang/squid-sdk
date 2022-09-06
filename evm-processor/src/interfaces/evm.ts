@@ -19,7 +19,7 @@ export interface EvmBlock {
     size: bigint
     gasLimit: string
     gasUsed: string
-    timestamp: bigint
+    timestamp: number
 }
 
 

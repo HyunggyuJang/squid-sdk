@@ -120,7 +120,7 @@ export class EvmBatchProcessor<Item extends {kind: string, address: string} = Lo
             address: contractAddress.toLowerCase(),
             topics: options?.filter || [],
         })
-        req.logsRequest = options?.data || {}
+        req.logsRequest = options?.data
         this.add(req, options?.range)
         return this
     }
