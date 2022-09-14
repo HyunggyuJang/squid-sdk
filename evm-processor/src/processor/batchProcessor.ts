@@ -116,11 +116,11 @@ export class EvmBatchProcessor<Item extends {kind: string, address: string} = Lo
     ): EvmBatchProcessor<any> {
         this.assertNotRunning()
         let req = new PlainBatchRequest()
-        req.addresses.push({
+        req.logs.push({
             address: contractAddress.toLowerCase(),
-            topics: options?.filter || [],
+            topics: options?.filter,
+            data: options?.data
         })
-        req.logsRequest = options?.data
         this.add(req, options?.range)
         return this
     }
@@ -150,18 +150,6 @@ export class EvmBatchProcessor<Item extends {kind: string, address: string} = Lo
         return this
     }
 
-    /**
-     * Sets the maximum number of blocks which can be fetched
-     * from the data source in a single request.
-     *
-     * The default is 100.
-     */
-    setBatchSize(size: number): this {
-        assert(size > 0)
-        this.assertNotRunning()
-        this.options.batchSize = size
-        return this
-    }
 
     /**
      * Sets blockchain data source.

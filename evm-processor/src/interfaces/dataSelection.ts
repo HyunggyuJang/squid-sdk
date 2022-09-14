@@ -27,10 +27,10 @@ export type WithProp<K extends string, V> = [V] extends [never] ? {} : {
 type LogScalars<T = EvmLog> = Omit<T, 'transaction'>
 
 
-export type TransactionRequest = Omit<PlainReq<EvmTransaction>, 'id' | 'dest' | 'transactionIndex'>
+export type TransactionRequest = Omit<PlainReq<EvmTransaction>, 'id' | 'dest' | 'index'>
 
 
-export type LogRequest = Omit<PlainReq<LogScalars>, 'id' | 'address' | 'logIndex'> & {
+export type LogRequest = Omit<PlainReq<LogScalars>, 'id' | 'address' | 'index'> & {
     transaction?: TransactionRequest | boolean
 }
 
@@ -43,12 +43,12 @@ export type TransactionType<R> = R extends true
     : R extends TransactionRequest ? TransactionFields<R> : never
 
 
-type ApplyTransactionFields<R extends LogRequest> = 
+type ApplyTransactionFields<R extends LogRequest> =
     R['transaction'] extends true
-        ? {transaction: EvmTransaction}
-        : R['transaction'] extends TransactionRequest
-            ? {transaction: TransactionFields<R['transaction']>}
-            : {}
+    ? {transaction: EvmTransaction}
+    : R['transaction'] extends TransactionRequest
+    ? {transaction: TransactionFields<R['transaction']>}
+    : {}
 
 
 type LogFields<R extends LogRequest> = Select<LogScalars, R> & ApplyTransactionFields<R>
@@ -160,4 +160,28 @@ export interface NoDataSelection {
 
 export interface MayBeDataSelection<R> {
     data?: R
+}
+
+
+export const FULL_REQUEST: Record<string, any> = {
+    log: {
+        data: true,
+        removed: true,
+        topics: true,
+        transaction: true,
+    },
+    transaction: {
+        source: true,
+        gas: true,
+        gasPrice: true,
+        hash: true,
+        input: true,
+        nonce: true,
+        value: true,
+        kind: true,
+        chainId: true,
+        v: true,
+        r: true,
+        s: true,
+    }
 }

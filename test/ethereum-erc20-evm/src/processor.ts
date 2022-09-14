@@ -6,26 +6,9 @@ import {Account, Token, Transfer} from "./model"
 
 
 const processor = new EvmBatchProcessor()
-    .setBatchSize(1000)
     .addLog('0xdac17f958d2ee523a2206206994597c13d831ec7',
         {
             range: {from: 4634748},
-            filter: [["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]],
-            data: {
-                log: {
-                    topics: true,
-                    data: true,
-                    transaction: {
-                        gas: true,
-                        hash: true,
-                    }
-                }
-            }
-        }
-    )
-    .addLog('0x4fabb145d64652a948d72533023f6e7a623c7c53',
-        {
-            range: {from: 8493105},
             filter: [["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]],
             data: {
                 log: {
@@ -82,8 +65,8 @@ processor.run(new TypeormDatabase(), async (ctx) => {
             let contract = new erc20.Contract(ctx, {height: Number(block.number)}, t.tokenId)
             token = new Token({
                 id: t.tokenId,
-                symbol: await contract.symbol(),
-                decimals: await contract.decimals(),
+                symbol: 'a',
+                decimals: 10,
             })
             tokens.set(token.id, token)
         }

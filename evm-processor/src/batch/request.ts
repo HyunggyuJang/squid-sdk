@@ -1,45 +1,30 @@
 import {EvmTopicSet} from '../interfaces/dataHandlers'
-import {LogDataRequest, TransactionDataRequest} from '../interfaces/dataSelection'
-import {LogFieldSelection, TransactionFieldSelection} from '../interfaces/gateway'
+import {LogDataRequest, LogRequest, TransactionDataRequest} from '../interfaces/dataSelection'
 
 
-type AddressReq = {
+type LogReq = {
     address: string
-    topics: EvmTopicSet
+    topics?: EvmTopicSet
+    data?: LogDataRequest
 }
 
-
 export interface BatchRequest {
-    getAddresses(): AddressReq[]
-    getLogsRequest(): LogDataRequest | undefined
-    getTransactionRequest(): TransactionDataRequest | undefined
+    getLogs(): LogReq[]
 }
 
 
 export class PlainBatchRequest implements BatchRequest {
-    addresses: AddressReq[] = []
+    logs: LogReq[] = []
     logsRequest?: LogDataRequest
     transactionsRequest?: TransactionDataRequest
 
-    getAddresses() {
-        return this.addresses
-    }
-
-    getLogsRequest() {
-        return this.logsRequest
-    }
-
-    getTransactionRequest() {
-        return this.transactionsRequest
+    getLogs() {
+        return this.logs
     }
 
     merge(other: PlainBatchRequest): PlainBatchRequest {
         let result = new PlainBatchRequest()
-        result.addresses = this.addresses.concat(other.addresses)
-        if (this.logsRequest != null || other.logsRequest != null)
-            result.logsRequest = Object.assign(this.logsRequest || {}, other.logsRequest)
-        if (this.transactionsRequest != null || other.transactionsRequest != null)
-            result.transactionsRequest = Object.assign(this.transactionsRequest || {}, other.transactionsRequest)
+        result.logs = this.logs.concat(other.logs)
         return result
     }
 }

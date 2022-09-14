@@ -50,4 +50,5 @@ export interface EvmLog {
     removed: boolean,
     topics: string[],
     transaction: EvmTransaction,
+    transactionIndex: bigint,
 }

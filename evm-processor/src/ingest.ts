@@ -8,13 +8,17 @@ import {EvmBlock, EvmLog, EvmTransaction} from "./interfaces/evm"
 import {printGqlArguments} from "./util/gql"
 import {addErrorContext, withErrorContext} from "./util/misc"
 import {Range, rangeEnd} from "./util/range"
-import {LogDataRequest, LogRequest, TransactionDataRequest, TransactionRequest} from "./interfaces/dataSelection"
+import {FULL_REQUEST, LogDataRequest, LogRequest, TransactionDataRequest, TransactionRequest} from "./interfaces/dataSelection"
 
 
 export type Item = {
     kind: 'log'
     address: string
     log: EvmLog
+} | {
+    kind: 'transaction'
+    address: string | undefined
+    transaction: EvmTransaction
 }
 
 
@@ -41,13 +45,11 @@ export interface IngestOptions<R> {
     fetchArchiveHeight<T>(): Promise<T>
     archivePollIntervalMS?: number
     batches: Batch<R>[]
-    batchSize: number
 }
 
 
 export class Ingest<R extends BatchRequest> {
     private archiveHeight = -1
-    private readonly limit: number // maximum number of blocks in a single batch
     private readonly batches: Batch<R>[]
     private readonly maxQueueSize = 3
     private queue: Promise<DataBatch<R>>[] = []
@@ -55,8 +57,6 @@ export class Ingest<R extends BatchRequest> {
 
     constructor(private options: IngestOptions<R>) {
         this.batches = options.batches.slice()
-        this.limit = this.options.batchSize
-        assert(this.limit > 0)
     }
 
     @def
@@ -94,12 +94,13 @@ export class Ingest<R extends BatchRequest> {
                     console.time('response')
                     let response: {
                         status: gw.StatusResponse
-                        data: gw.BatchItem[],
-                        metrics: any
+                        data: gw.BatchBlock[],
+                        metrics: any,
+                        nextBlock: number,
                     } = await this.options.archiveRequest(ctx.archiveQuery)
                     console.timeEnd('response')
 
-                    console.log(response.metrics)
+                    console.log(response.metrics, response.data.length)
 
                     let fetchEndTime = process.hrtime.bigint()
 
@@ -108,9 +109,8 @@ export class Ingest<R extends BatchRequest> {
                     assert(response.status.dbMaxBlockNumber >= archiveHeight)
                     this.setArchiveHeight(response.status)
 
-                    let blocks = convertGateWayItemsToBlocks(response.data).map(mapGatewayBlock).sort((a, b) => Number(a.header.number - b.header.number))
+                    let blocks = response.data.map(tryMapGatewayBlock).sort((a, b) => Number(a.header.number - b.header.number))
                     if (blocks.length) {
-                        assert(blocks.length <= this.limit)
                         assert(batch.range.from <= blocks[0].header.number)
                         assert(rangeEnd(batch.range) >= last(blocks).header.number)
                         assert(archiveHeight >= last(blocks).header.number)
@@ -119,15 +119,9 @@ export class Ingest<R extends BatchRequest> {
                     let from = batch.range.from
                     let to: number
                     if (blocks.length === 0 || last(blocks).header.number < rangeEnd(batch.range)) {
-                        to = from + this.limit
+                        to = response.nextBlock - 1
                         this.batches[0] = {
-                            range: {from: to + 1, to: batch.range.to},
-                            request: batch.request
-                        }
-                    } else if (archiveHeight < rangeEnd(batch.range)) {
-                        to = archiveHeight
-                        this.batches[0] = {
-                            range: {from: to + 1, to: batch.range.to},
+                            range: {from: response.nextBlock, to: batch.range.to},
                             request: batch.request
                         }
                     } else {
@@ -160,18 +154,18 @@ export class Ingest<R extends BatchRequest> {
 
     private buildBatchQuery(batch: Batch<R>, archiveHeight: number): string {
         let from = batch.range.from
-        let to = Math.min(archiveHeight, from + this.limit)
-        assert(from <= to)
 
         let req = batch.request
 
         let args: gw.BatchRequest = {
             fromBlock: from,
-            toBlock: to,
         }
 
-        args.addresses = req.getAddresses()
-        args.fieldSelection = toGatewayFields(req.getLogsRequest(), req.getTransactionRequest())
+        args.logs = req.getLogs().map((l) => ({
+            address: l.address,
+            topics: l.topics || [],
+            fieldSelection: toGatewayFieldSelection({block: gw.DEFAULT_SELECTION.block}, l.data, CONTEXT_NESTING_SHAPE)
+        }))
 
         return JSON.stringify(args)
     }
@@ -202,92 +196,59 @@ export class Ingest<R extends BatchRequest> {
     }
 }
 
-
-function toGatewayFields(
-    logRequest: any | undefined,
-    transactionRequest: any | undefined
-): any | undefined {
-    let fields: {block: any, transaction: any, log: any} =
-    {
-        block: gw.FULL_BLOCK_SELECTION,
-        transaction: {transactionIndex: true, source: true},
-        log: {logIndex: true, address: true}
+const CONTEXT_NESTING_SHAPE = (() => {
+    let transaction = {}
+    return {
+        log: {
+            transaction,
+        },
+        transaction,
     }
+})();
 
-    if (logRequest == null || logRequest.log === true) {
-        fields.log = gw.FULL_LOG_SELECTION
-        fields.transaction = gw.FULL_TRANSACTION_SELECTION
-    } else {
-        for (let key in logRequest.log) {
-            if (key === 'transaction') {
-                fields.transaction = Object.assign(fields.transaction, logRequest.log[key])
-                fields.log['transactionIndex'] = true
-            } else {
-                fields.log[key] = fields.log[key] || logRequest.log[key]
-            }
+function toGatewayFieldSelection(selection: Record<string, any>, req: any | undefined, shape: Record<string, any>, subfield?: string): any | undefined {
+    for (let key in req) {
+        if (shape[key]) {
+            if (req[key] === true) req[key] = FULL_REQUEST[key]
+            if (selection[key] == null) selection[key] = gw.DEFAULT_SELECTION[key]
+            toGatewayFieldSelection(selection, req[key], shape[key], key)
+        } else {
+            let s = subfield ? selection[subfield] : selection
+            s[key] = s[key] || req[key]
         }
     }
 
-    // if (transactionRequest == null || transactionRequest.transaction === true) {
-    //     fields.transaction = gw.FULL_TRANSACTION_SELECTION
-    // } else {
-    //     for (let key in transactionRequest.transaction) {
-    //         fields.transaction[key] = fields.transaction[key] || transactionRequest.transaction[key]
-    //     }
-    // }
-
-    return fields
+    return selection
 }
 
 
-function convertGateWayItemsToBlocks(items: gw.BatchItem[]): gw.BatchBlock[] {
-    let blocks = new Map<bigint, gw.BatchBlock>()
-
-    for (let item of items) {
-        let block = blocks.get(item.block.number)
-        if (!block) {
-            block = {header: item.block, logs: [], transactions: []}
-            blocks.set(block.header.number, block)
-        }
-
-        if (block.transactions.findIndex((t) => t.hash === item.transaction.hash) < 0) {
-            block.transactions.push(item.transaction)
-        }
-
-        block.logs.push(item.log)
-    }
-
-    return [...blocks.values()]
-}
-
-
-function mapGatewayBlock(block: gw.BatchBlock): BlockData {
+function tryMapGatewayBlock(block: gw.BatchBlock): BlockData {
     try {
-        return tryMapGatewayBlock(block)
+        return mapGatewayBlock(block)
     } catch (e: any) {
         throw addErrorContext(e, {
-            blockHeight: block.header.number,
-            blockHash: block.header.hash
+            blockHeight: block.block.number,
+            blockHash: block.block.hash
         })
     }
 }
 
 
-function tryMapGatewayBlock(block: gw.BatchBlock): BlockData {
+function mapGatewayBlock(block: gw.BatchBlock): BlockData {
     let logs = createObjects<gw.Log, EvmLog>(block.logs, go => {
-        let {transactionIndex, logIndex: index, ...log} = go
-        return {id: `${block.header.number}-${index}-${block.header.hash.slice(3, 7)}`, index, ...log}
+        let {logIndex: index, ...log} = go as any
+        return {id: `${block.block.number}-${index}-${block.block.hash.slice(3, 7)}`, index, ...log}
     })
 
     let transactions = createObjects<gw.Transaction, EvmTransaction>(block.transactions, go => {
-        let {transactionIndex: index, ...transaction} = go
-        return {id: `${block.header.number}-${index}-${block.header.hash.slice(3, 7)}`, index, ...transaction}
+        let {transactionIndex: index, ...transaction} = go as any
+        return {id: `${block.block.number}-${index}-${block.block.hash.slice(3, 7)}`, index, ...transaction}
     })
 
     let items: Item[] = []
 
     for (let go of block.logs) {
-        let log = assertNotNull(logs.get(go.logIndex)) as EvmLog
+        let log = assertNotNull(logs.get((go as any).logIndex)) as EvmLog
         if (go.transactionIndex != null) {
             log.transaction = assertNotNull(transactions.get(go.transactionIndex)) as EvmTransaction
         }
@@ -298,12 +259,36 @@ function tryMapGatewayBlock(block: gw.BatchBlock): BlockData {
         })
     }
 
-    items.sort((a, b) => Number(a.log.index - b.log.index))
+    for (let go of block.transactions) {
+        let transaction = assertNotNull(transactions.get((go as any).transactionIndex)) as EvmTransaction
+        items.push({
+            kind: 'transaction',
+            address: transaction.dest,
+            transaction
+        })
+    }
 
-    let {timestamp, ...hdr} = block.header
+    items.sort((a, b) => {
+        if (a.kind === 'log' && b.kind === 'log') {
+            return Number(a.log.transactionIndex + a.log.index - b.log.transactionIndex - b.log.index)
+        } else if (a.kind === 'transaction' && b.kind === 'transaction') {
+            return Number(a.transaction.index - b.transaction.index)
+        } else {
+            return Number((a.kind === 'log' && b.kind === 'transaction')
+                ? a.log.transactionIndex - b.transaction.index
+                : (
+                    a.kind === 'transaction' && b.kind === 'log'
+                        ? a.transaction.index - b.log.transactionIndex
+                        : 0
+                )
+            )
+        }
+    })
+
+    let {timestamp, ...hdr} = block.block
 
     return {
-        header: {id: `${block.header.number}-${block.header.hash.slice(3, 7)}`, timestamp: timestamp * 1000, ...hdr},
+        header: {id: `${block.block.number}-${block.block.hash.slice(3, 7)}`, timestamp: timestamp * 1000, ...hdr},
         items: items
     }
 }

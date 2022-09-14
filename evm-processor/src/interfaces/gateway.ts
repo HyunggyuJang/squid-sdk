@@ -1,5 +1,5 @@
 import {EvmTopicSet} from "./dataHandlers"
-import {EvmBlock} from "./evm"
+
 
 export interface StatusResponse {
     parquetBlockNumber: number
@@ -9,16 +9,16 @@ export interface StatusResponse {
 
 
 export interface BatchRequest {
-    fromBlock?: number
+    fromBlock: number
     toBlock?: number
-    addresses?: AddressRequest[]
-    fieldSelection?: FieldSelection
+    logs?: LogRequest[]
 }
 
 
-export interface AddressRequest {
+export interface LogRequest {
     address: string
     topics: EvmTopicSet
+    fieldSelection: FieldSelection
 }
 
 export interface FieldSelection {
@@ -65,7 +65,7 @@ export interface Transaction {
     input: string,
     nonce: bigint,
     dest?: string,
-    transactionIndex: bigint,
+    index: bigint,
     value: string,
     kind: bigint,
     chainId: bigint,
@@ -78,67 +78,93 @@ export interface Transaction {
 export interface Log {
     address: string,
     data: string,
-    logIndex: bigint,
+    index: bigint,
     removed: boolean,
     topics: string[],
     transactionIndex: bigint,
 }
 
 
-export interface BatchItem {
-    block: Block
-    transaction: Transaction
-    log: Log
-}
-
 export interface BatchBlock {
-    header: Block
+    block: Block
     logs: Log[]
     transactions: Transaction[]
 }
 
-export const FULL_BLOCK_SELECTION: Required<BlockFieldSelection> = {
-    number: true,
-    hash: true,
-    parentHash: true,
-    nonce: true,
-    sha3Uncles: true,
-    logsBloom: true,
-    transactionsRoot: true,
-    stateRoot: true,
-    receiptsRoot: true,
-    miner: true,
-    difficulty: true,
-    totalDifficulty: true,
-    extraData: true,
-    size: true,
-    gasLimit: true,
-    gasUsed: true,
-    timestamp: true,
+
+export const FULL_SELECTION = {
+    block: {
+        number: true,
+        hash: true,
+        parentHash: true,
+        nonce: true,
+        sha3Uncles: true,
+        logsBloom: true,
+        transactionsRoot: true,
+        stateRoot: true,
+        receiptsRoot: true,
+        miner: true,
+        difficulty: true,
+        totalDifficulty: true,
+        extraData: true,
+        size: true,
+        gasLimit: true,
+        gasUsed: true,
+        timestamp: true,
+    },
+    log: {
+        address: true,
+        data: true,
+        index: true,
+        removed: true,
+        topics: true,
+        transactionIndex: true,
+    },
+    transaction: {
+        source: true,
+        gas: true,
+        gasPrice: true,
+        hash: true,
+        input: true,
+        nonce: true,
+        dest: true,
+        index: true,
+        value: true,
+        kind: true,
+        chainId: true,
+        v: true,
+        r: true,
+        s: true,
+    }
 }
 
-export const FULL_LOG_SELECTION: Required<LogFieldSelection> = {
-    address: true,
-    data: true,
-    logIndex: true,
-    removed: true,
-    topics: true,
-    transactionIndex: true,
-}
-
-export const FULL_TRANSACTION_SELECTION: Required<TransactionFieldSelection> = {
-    source: true,
-    gas: true,
-    gasPrice: true,
-    hash: true,
-    input: true,
-    nonce: true,
-    dest: true,
-    transactionIndex: true,
-    value: true,
-    kind: true,
-    chainId: true,
-    v: true,
-    r: true,
-    s: true,
+export const DEFAULT_SELECTION: Record<string, any> = {
+    block: {
+        number: true,
+        hash: true,
+        parentHash: true,
+        nonce: true,
+        sha3Uncles: true,
+        logsBloom: true,
+        transactionsRoot: true,
+        stateRoot: true,
+        receiptsRoot: true,
+        miner: true,
+        difficulty: true,
+        totalDifficulty: true,
+        extraData: true,
+        size: true,
+        gasLimit: true,
+        gasUsed: true,
+        timestamp: true,
+    },
+    log: {
+        address: true,
+        index: true,
+        transactionIndex: true,
+    },
+    transaction: {
+        dest: true,
+        index: true,
+    }
 }
