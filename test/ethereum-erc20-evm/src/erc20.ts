@@ -72,41 +72,42 @@ export const functions = {
   ,
 }
 
-interface ChainContext  {
+interface ChainContext {
   _chain: Chain
 }
 
-interface BlockContext  {
+interface BlockContext {
   _chain: Chain
   block: Block
 }
 
-interface Block  {
-  height: number
+interface Block {
+  hash: string
 }
 
-interface Chain  {
-  client:  {
-    call: <T=any>(method: string, params?: unknown[]) => Promise<T>
+interface Chain {
+  client: {
+    call: <T = any>(method: string, params?: unknown[]) => Promise<T>
   }
 }
 
-export class Contract  {
+export class Contract {
   private readonly _chain: Chain
-  private readonly blockHeight: number
+  private readonly blockHash: string
   readonly address: string
 
   constructor(ctx: BlockContext, address: string)
-  constructor(ctx: ChainContext, block: Block, address: string)
+  constructor(ctx: ChainContext, block: Block | string, address: string)
   constructor(ctx: BlockContext, blockOrAddress: Block | string, address?: string) {
     this._chain = ctx._chain
-    if (typeof blockOrAddress === 'string')  {
-      this.blockHeight = ctx.block.height
+    if (address == null) {
+      this.blockHash = ctx.block.hash
+      assert(typeof blockOrAddress === 'string')
       this.address = ethers.utils.getAddress(blockOrAddress)
     }
-    else  {
+    else {
       assert(address != null)
-      this.blockHeight = blockOrAddress.height
+      this.blockHash = typeof blockOrAddress === 'string' ? blockOrAddress : blockOrAddress.hash
       this.address = ethers.utils.getAddress(address)
     }
   }
@@ -135,10 +136,10 @@ export class Contract  {
     return this.call("allowance", [_owner, _spender])
   }
 
-  private async call(name: string, args: any[]) : Promise<any> {
+  private async call(name: string, args: any[]): Promise<any> {
     const fragment = abi.getFunction(name)
     const data = abi.encodeFunctionData(fragment, args)
-    const result = await this._chain.client.call('eth_call', [{to: this.address, data}, this.blockHeight])
+    const result = await this._chain.client.call('eth_call', [{to: this.address, data}, this.blockHash])
     const decoded = abi.decodeFunctionResult(fragment, result)
     return decoded.length > 1 ? decoded : decoded[0]
   }

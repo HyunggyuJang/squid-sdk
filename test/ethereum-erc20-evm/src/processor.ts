@@ -8,7 +8,7 @@ import {Account, Token, Transfer} from "./model"
 const processor = new EvmBatchProcessor()
     .addLog('0xdac17f958d2ee523a2206206994597c13d831ec7',
         {
-            range: {from: 4634748},
+            range: {from: 5_000_000},
             filter: [["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]],
             data: {
                 log: {
@@ -26,7 +26,7 @@ const processor = new EvmBatchProcessor()
 
 processor.setDataSource({
     archive: 'https://eth-test.archive.subsquid.io',
-    chain: 'wss://rinkeby-light.eth.linkpool.io/ws'
+    chain: 'wss://mainnet.infura.io/ws/v3/c8458927a73148cfab30014f6e422bb3'
 })
 
 
@@ -45,9 +45,12 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         tokenIds.add(t.tokenId)
     }
 
-    let accounts = await ctx.store.findBy(Account, {id: In([...accountIds])}).then(accounts => {
-        return new Map(accounts.map(a => [a.id, a]))
-    })
+    let accounts = new Map<string, Account>()
+    for (let accountIdsBatch of splitIntoBatches([...accountIds], 10000)) {
+        await ctx.store.findBy(Account, {id: In(accountIdsBatch)}).then(as => {
+            as.forEach(a => accounts.set(a.id, a))
+        })
+    }
 
     let tokens = await ctx.store.findBy(Token, {id: In([...tokenIds])}).then(tokens => {
         return new Map(tokens.map(t => [t.id, t]))
@@ -56,25 +59,25 @@ processor.run(new TypeormDatabase(), async (ctx) => {
     let transfers: Transfer[] = []
 
     for (let t of transfersData) {
-        let {id, block, txHash, amount, gas} = t
+        let {id, block, blockHash, timestamp, txHash, amount, gas} = t
 
         let from = getAccount(accounts, t.fromId)
         let to = getAccount(accounts, t.toId)
         let token = tokens.get(t.tokenId)
         if (!token) {
-            let contract = new erc20.Contract(ctx, {height: Number(block.number)}, t.tokenId)
+            let contract = new erc20.Contract(ctx, blockHash, t.tokenId)
             token = new Token({
                 id: t.tokenId,
-                symbol: 'a',
-                decimals: 10,
+                symbol: await contract.symbol(),
+                decimals: await contract.decimals(),
             })
             tokens.set(token.id, token)
         }
 
         transfers.push(new Transfer({
             id,
-            blockNumber: Number(block.number),
-            timestamp: new Date(block.timestamp),
+            blockNumber: block,
+            timestamp: timestamp,
             txHash,
             from,
             to,
@@ -91,7 +94,9 @@ processor.run(new TypeormDatabase(), async (ctx) => {
 
 interface TransferEvent {
     id: string
-    block: EvmBlock
+    block: number
+    blockHash: string
+    timestamp: Date
     txHash: string
     fromId: string
     toId: string
@@ -112,7 +117,9 @@ function getTransfers(ctx: Ctx): TransferEvent[] {
                     const data = erc20.events["Transfer(address,address,uint256)"].decode(log)
                     transfers.push({
                         id: log.id,
-                        block: block.header,
+                        block: Number(block.header.number),
+                        blockHash: block.header.hash,
+                        timestamp: new Date(block.header.timestamp),
                         txHash: log.transaction.hash,
                         fromId: data.from,
                         toId: data.to,
@@ -136,4 +143,18 @@ function getAccount(m: Map<string, Account>, id: string): Account {
         m.set(id, acc)
     }
     return acc
+}
+
+
+function* splitIntoBatches<T>(list: T[], maxBatchSize: number): Generator<T[]> {
+    if (list.length <= maxBatchSize) {
+        yield list
+    } else {
+        let offset = 0
+        while (list.length - offset > maxBatchSize) {
+            yield list.slice(offset, offset + maxBatchSize)
+            offset += maxBatchSize
+        }
+        yield list.slice(offset)
+    }
 }
