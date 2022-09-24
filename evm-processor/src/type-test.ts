@@ -1,4 +1,4 @@
-import {BatchContext, EvmBatchProcessor} from "./batchProcessor"
+import {BatchContext, EvmBatchProcessor} from "./processor"
 
 
 const db: any = {}

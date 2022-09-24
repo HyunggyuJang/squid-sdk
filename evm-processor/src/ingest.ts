@@ -1,14 +1,12 @@
-import {assertNotNull, def, last, unexpectedCase, wait} from "@subsquid/util-internal"
-import {Output} from "@subsquid/util-internal-code-printer"
+import {assertNotNull, def, last, wait} from "@subsquid/util-internal"
 import assert from "assert"
 import type {Batch} from "./batch/generic"
 import {BatchRequest} from "./batch/request"
 import * as gw from "./interfaces/gateway"
 import {EvmBlock, EvmLog, EvmTransaction} from "./interfaces/evm"
-import {printGqlArguments} from "./util/gql"
 import {addErrorContext, withErrorContext} from "./util/misc"
 import {Range, rangeEnd} from "./util/range"
-import {FULL_REQUEST, LogDataRequest, LogRequest, TransactionDataRequest, TransactionRequest} from "./interfaces/dataSelection"
+import {FULL_REQUEST} from "./interfaces/dataSelection"
 
 
 export type Item = {
