@@ -1,3 +1,5 @@
+import {KeyvAdapter} from '@apollo/utils.keyvadapter'
+import {InMemoryLRUCache} from '@apollo/utils.keyvaluecache'
 import {mergeSchemas} from '@graphql-tools/schema'
 import {Logger} from '@subsquid/logger'
 import {Context, OpenreaderContext} from '@subsquid/openreader/lib/context'
@@ -10,15 +12,16 @@ import {loadModel, resolveGraphqlSchema} from '@subsquid/openreader/lib/tools'
 import {ResponseSizeLimit} from '@subsquid/openreader/lib/util/limit'
 import {def} from '@subsquid/util-internal'
 import {ListeningServer} from '@subsquid/util-internal-http-server'
-import {PluginDefinition} from 'apollo-server-core'
+import {ApolloServerPluginCacheControl, KeyValueCache, PluginDefinition} from 'apollo-server-core'
+import responseCachePlugin from 'apollo-server-plugin-response-cache'
 import assert from 'assert'
 import {GraphQLInt, GraphQLObjectType, GraphQLSchema} from 'graphql'
+import Keyv from 'keyv'
 import * as path from 'path'
 import {Pool} from 'pg'
 import * as process from 'process'
 import type {DataSource} from 'typeorm'
 import {createCheckPlugin, RequestCheckFunction} from './check'
-import {loadCustomResolvers} from './resolvers'
 import {TypeormOpenreaderContext} from './typeorm'
 
 
@@ -32,8 +35,23 @@ export interface ServerOptions {
     squidStatus?: boolean
     subscriptions?: boolean
     subscriptionPollInterval?: number
-    subscriptionSqlStatementTimeout?: number
     subscriptionMaxResponseNodes?: number
+    dumbCache?: DumbRedisCacheOptions | DumbInMemoryCacheOptions
+}
+
+
+export interface DumbRedisCacheOptions {
+    kind: 'redis'
+    url: string
+    maxAgeMs: number
+}
+
+
+export interface DumbInMemoryCacheOptions {
+    kind: 'in-memory'
+    maxSizeMb: number
+    ttlMs: number
+    maxAgeMs: number
 }
 
 
@@ -55,6 +73,13 @@ export class Server {
         let context = await this.context()
         let plugins: PluginDefinition[] = []
 
+        if (this.options.dumbCache) {
+            plugins.push(
+                ApolloServerPluginCacheControl({defaultMaxAge: this.options.dumbCache.maxAgeMs / 1000}),
+                responseCachePlugin()
+            )
+        }
+
         let requestCheck = this.customCheck()
         if (requestCheck) {
             plugins.push(createCheckPlugin(requestCheck, this.model()))
@@ -70,7 +95,8 @@ export class Server {
             subscriptions: this.options.subscriptions,
             graphiqlConsole: true,
             maxRequestSizeBytes: this.options.maxRequestSizeBytes,
-            maxRootFields: this.options.maxRootFields
+            maxRootFields: this.options.maxRootFields,
+            cache: this.cache()
         })
     }
 
@@ -162,28 +188,14 @@ export class Server {
         if (await this.customResolvers()) {
             let con = await this.createTypeormConnection({sqlStatementTimeout: this.options.sqlStatementTimeout})
             this.disposals.push(() => con.destroy())
-            let subscriptionCon = con
-            if (this.options.subscriptions) {
-                subscriptionCon = await this.createTypeormConnection({
-                    sqlStatementTimeout: this.options.subscriptionSqlStatementTimeout || this.options.sqlStatementTimeout
-                })
-                this.disposals.push(() => subscriptionCon.destroy())
-            }
             createOpenreader = () => {
-                return new TypeormOpenreaderContext(dialect, con, subscriptionCon, this.options.subscriptionPollInterval)
+                return new TypeormOpenreaderContext(dialect, con, con, this.options.subscriptionPollInterval)
             }
         } else {
             let pool = await this.createPgPool({sqlStatementTimeout: this.options.sqlStatementTimeout})
             this.disposals.push(() => pool.end())
-            let subscriptionPool = pool
-            if (this.options.subscriptions) {
-                subscriptionPool = await this.createPgPool({
-                    sqlStatementTimeout: this.options.subscriptionSqlStatementTimeout || this.options.sqlStatementTimeout
-                })
-                this.disposals.push(() => subscriptionPool.end())
-            }
             createOpenreader = () => {
-                return new PoolOpenreaderContext(dialect, pool, subscriptionPool, this.options.subscriptionPollInterval)
+                return new PoolOpenreaderContext(dialect, pool, pool, this.options.subscriptionPollInterval)
             }
         }
         return () => {
@@ -208,7 +220,9 @@ export class Server {
         let cfg = {
             ...createOrmConfig({projectDir: this.dir}),
             extra: {
-                statement_timeout: options?.sqlStatementTimeout || undefined
+                statement_timeout: options?.sqlStatementTimeout || undefined,
+                max: this.connectionPoolSize(),
+                min: this.connectionPoolSize()
             }
         }
         let con = new DataSource(cfg)
@@ -225,8 +239,15 @@ export class Server {
             database: params.database,
             user: params.username,
             password: params.password,
-            statement_timeout: options?.sqlStatementTimeout || undefined
+            statement_timeout: options?.sqlStatementTimeout || undefined,
+            max: this.connectionPoolSize(),
+            min: this.connectionPoolSize()
         })
+    }
+
+    @def
+    private connectionPoolSize(): number {
+        return envNat('GQL_DB_CONNECTION_POOL_SIZE') || 5
     }
 
     private dialect(): Dialect {
@@ -248,6 +269,23 @@ export class Server {
         return loadModel(file)
     }
 
+    @def
+    private cache(): KeyValueCache | undefined {
+        let log = this.options.log
+        let opts = this.options.dumbCache
+        switch(opts?.kind) {
+            case 'redis':
+                log?.warn(`enabling dumb redis cache (max-age: ${opts.maxAgeMs}ms)`)
+                return new KeyvAdapter(new Keyv(opts.url))
+            case 'in-memory':
+                log?.warn(`enabling dumb in-memory cache (size: ${opts.maxSizeMb}mb, ttl: ${opts.ttlMs}ms, max-age: ${opts.maxAgeMs}ms)`)
+                return new InMemoryLRUCache({
+                    maxSize: opts.maxSizeMb * 1024 * 1024,
+                    ttl: opts.ttlMs,
+                })
+        }
+    }
+
     private port(): number | string {
         return process.env.GQL_PORT || process.env.GRAPHQL_SERVER_PORT || 4000
     }
@@ -260,4 +298,13 @@ export class Server {
 
 interface ConnectionOptions {
     sqlStatementTimeout?: number
+}
+
+
+function envNat(name: string): number | undefined {
+    let env = process.env[name]
+    if (!env) return undefined
+    let val = parseInt(env, 10)
+    if (Number.isSafeInteger(val) && val >= 0) return val
+    throw new Error(`Invalid env variable ${name}: ${env}. Expected positive integer`)
 }

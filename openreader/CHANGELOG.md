@@ -1,6 +1,26 @@
 # Change Log - @subsquid/openreader
 
-This log was last generated on Tue, 30 Aug 2022 09:15:59 GMT and should not be manually modified.
+This log was last generated on Thu, 22 Sep 2022 15:21:10 GMT and should not be manually modified.
+
+## 3.1.0
+Thu, 22 Sep 2022 15:21:10 GMT
+
+### Minor changes
+
+- support `BigDecimal` type
+- add cache option to `runApollo()`
+
+## 3.0.0
+Thu, 15 Sep 2022 20:54:52 GMT
+
+### Breaking changes
+
+- remove `--subscription-sql-statement-timeout` option
+- refactor internal data structures used throughout framework
+
+### Minor changes
+
+- add support for queryable interfaces
 
 ## 2.1.0
 Tue, 30 Aug 2022 09:15:59 GMT

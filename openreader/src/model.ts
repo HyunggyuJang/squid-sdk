@@ -23,6 +23,7 @@ export interface JsonObject extends TypeMeta {
 export interface Interface extends TypeMeta {
     kind: 'interface'
     properties: Record<Name, Prop>
+    queryable?: boolean
 }
 
 
@@ -79,7 +80,7 @@ export interface ScalarPropType {
 }
 
 
-export type Scalar = 'ID' | 'String' | 'Int' | 'Float' | 'Boolean' | 'DateTime' | 'BigInt' | 'JSON' | 'Bytes'
+export type Scalar = 'ID' | 'String' | 'Int' | 'Float' | 'Boolean' | 'DateTime' | 'BigInt' | 'JSON' | 'Bytes' | 'BigDecimal'
 
 
 export interface EnumPropType {
@@ -108,7 +109,7 @@ export interface ListPropType {
 
 export interface FkPropType {
     kind: 'fk'
-    foreignEntity: Name
+    entity: Name
 }
 
 

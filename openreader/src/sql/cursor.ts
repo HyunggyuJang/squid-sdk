@@ -154,7 +154,7 @@ export class EntityCursor implements Cursor {
             case "fk":
                 return new EntityCursor(
                     this.ctx,
-                    prop.type.foreignEntity,
+                    prop.type.entity,
                     {on: 'id', rhs: this.native(field)}
                 )
             case "lookup":
@@ -252,6 +252,8 @@ export class ObjectCursor implements Cursor {
                         return `(${this.string(field)})::bool`
                     case 'BigInt':
                         return `(${this.string(field)})::numeric`
+                    case 'BigDecimal':
+                        return `(${this.string(field)})::numeric`
                     case 'Bytes':
                         return `decode(substr(${this.string(field)}, 3), 'hex')`
                     case 'DateTime':
@@ -281,7 +283,7 @@ export class ObjectCursor implements Cursor {
             case "fk":
                 return new EntityCursor(
                     this.ctx,
-                    prop.type.foreignEntity,
+                    prop.type.entity,
                     {on: 'id', rhs: this.string(field)}
                 )
             default:

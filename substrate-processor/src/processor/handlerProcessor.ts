@@ -6,7 +6,6 @@ import {applyRangeBound, Batch, mergeBatches} from '../batch/generic'
 import {CallHandlerEntry, DataHandlers} from '../batch/handlers'
 import type {Chain} from '../chain'
 import type {BlockData} from '../ingest'
-import {EthereumTransactionHandlerOptions} from '../interfaces/dataHandlers'
 import type {
     BlockHandler,
     BlockHandlerContext,
@@ -19,6 +18,7 @@ import type {
     EventHandler,
     EvmLogHandler,
     EvmLogOptions,
+    EthereumTransactionHandlerOptions,
     EvmTopicSet,
     GearMessageEnqueuedHandler,
     GearUserMessageSentHandler
@@ -1075,16 +1075,17 @@ class HandlerRunner<S> extends Runner<S, DataHandlers>{
         }
     }
 
-    private evmHandlerMatches(handler: {filter?: EvmTopicSet[]}, log: EvmLogEvent): boolean {
+    private evmHandlerMatches(handler: {filter?: EvmTopicSet[]}, event: EvmLogEvent): boolean {
         if (handler.filter == null) return true
+        let log = event.args.log || event.args
         for (let i = 0; i < handler.filter.length; i++) {
             let set = handler.filter[i]
             if (set == null) continue
             if (Array.isArray(set)) {
-                if (!set.includes(log.args.topics[i])) {
+                if (!set.includes(log.topics[i])) {
                     return false
                 }
-            } else if (set !== log.args.topics[i]) {
+            } else if (set !== log.topics[i]) {
                 return false
             }
         }
