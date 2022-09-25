@@ -1,5 +1,11 @@
-import {EvmTopicSet} from "./dataHandlers"
+import { EvmTopicSet } from './dataHandlers'
 
+export interface QueryResponse {
+    status: StatusResponse
+    data: BatchBlock[]
+    metrics: any
+    nextBlock: number
+}
 
 export interface StatusResponse {
     parquetBlockNumber: number
@@ -7,13 +13,11 @@ export interface StatusResponse {
     dbMinBlockNumber: number
 }
 
-
 export interface BatchRequest {
     fromBlock: number
     toBlock?: number
     logs?: LogRequest[]
 }
-
 
 export interface LogRequest {
     address: string
@@ -22,19 +26,16 @@ export interface LogRequest {
 }
 
 export interface FieldSelection {
-    block?: BlockFieldSelection,
-    transaction?: TransactionFieldSelection,
-    log?: LogFieldSelection,
+    block?: BlockFieldSelection
+    transaction?: TransactionFieldSelection
+    log?: LogFieldSelection
 }
 
-export type BlockFieldSelection = {[P in keyof Block]?: boolean}
+export type BlockFieldSelection = { [P in keyof Block]?: boolean }
 
+export type LogFieldSelection = { [P in keyof Log]?: boolean }
 
-export type LogFieldSelection = {[P in keyof Log]?: boolean}
-
-
-export type TransactionFieldSelection = {[P in keyof Transaction]?: boolean}
-
+export type TransactionFieldSelection = { [P in keyof Transaction]?: boolean }
 
 export interface Block {
     number: bigint
@@ -56,41 +57,37 @@ export interface Block {
     timestamp: number
 }
 
-
 export interface Transaction {
-    source: string,
-    gas: bigint,
-    gasPrice: bigint,
-    hash: string,
-    input: string,
-    nonce: bigint,
-    dest?: string,
-    index: bigint,
-    value: string,
-    kind: bigint,
-    chainId: bigint,
-    v: bigint,
-    r: string,
-    s: string,
+    source: string
+    gas: bigint
+    gasPrice: bigint
+    hash: string
+    input: string
+    nonce: bigint
+    dest?: string
+    index: bigint
+    value: string
+    kind: bigint
+    chainId: bigint
+    v: bigint
+    r: string
+    s: string
 }
-
 
 export interface Log {
-    address: string,
-    data: string,
-    index: bigint,
-    removed: boolean,
-    topics: string[],
-    transactionIndex: bigint,
+    address: string
+    data: string
+    index: bigint
+    removed: boolean
+    topics: string[]
+    transactionIndex: bigint
 }
-
 
 export interface BatchBlock {
     block: Block
     logs: Log[]
     transactions: Transaction[]
 }
-
 
 export const FULL_SELECTION = {
     block: {
@@ -135,7 +132,7 @@ export const FULL_SELECTION = {
         v: true,
         r: true,
         s: true,
-    }
+    },
 }
 
 export const DEFAULT_SELECTION: Record<string, any> = {
@@ -166,5 +163,5 @@ export const DEFAULT_SELECTION: Record<string, any> = {
     transaction: {
         dest: true,
         index: true,
-    }
+    },
 }

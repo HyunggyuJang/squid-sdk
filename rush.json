@@ -630,12 +630,6 @@
       "versionPolicyName": "npm"
     },
     {
-      "packageName": "@subsquid/util-internal-json-request",
-      "projectFolder": "util/util-internal-json-request",
-      "shouldPublish": true,
-      "versionPolicyName": "npm"
-    },
-    {
       "packageName": "@subsquid/util-internal-hex",
       "projectFolder": "util/util-internal-hex",
       "shouldPublish": true,

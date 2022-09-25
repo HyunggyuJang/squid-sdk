@@ -1,3 +1,4 @@
+import {StatusResponse} from "../interfaces/gateway"
 
 export function unique<T>(items: Iterable<T>): T[] {
     let set = new Set(items)

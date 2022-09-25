@@ -7,6 +7,8 @@ import {EvmBlock, EvmLog, EvmTransaction} from "./interfaces/evm"
 import {addErrorContext, withErrorContext} from "./util/misc"
 import {Range, rangeEnd} from "./util/range"
 import {FULL_REQUEST} from "./interfaces/dataSelection"
+import {Archive} from "./archive"
+import {statusToHeight} from "./util/gateway"
 
 
 export type Item = {
@@ -39,8 +41,7 @@ export interface DataBatch<R> {
 
 
 export interface IngestOptions<R> {
-    archiveRequest<T>(query: string): Promise<T>
-    fetchArchiveHeight<T>(): Promise<T>
+    archive: Archive
     archivePollIntervalMS?: number
     batches: Batch<R>[]
 }
@@ -90,12 +91,7 @@ export class Ingest<R extends BatchRequest> {
                     let fetchStartTime = process.hrtime.bigint()
 
                     console.time('response')
-                    let response: {
-                        status: gw.StatusResponse
-                        data: gw.BatchBlock[],
-                        metrics: any,
-                        nextBlock: number,
-                    } = await this.options.archiveRequest(ctx.archiveQuery)
+                    let response = await this.options.archive.query(ctx.archiveQuery)
                     console.timeEnd('response')
 
                     console.log(response.metrics, response.data.length)
@@ -105,7 +101,7 @@ export class Ingest<R extends BatchRequest> {
                     ctx.batchBlocksFetched = response.data.length
 
                     assert(response.status.dbMaxBlockNumber >= archiveHeight)
-                    this.setArchiveHeight(response.status)
+                    this.setArchiveHeight(statusToHeight(response.status))
 
                     let blocks = response.data.map(tryMapGatewayBlock).sort((a, b) => Number(a.header.number - b.header.number))
                     if (blocks.length) {
@@ -152,11 +148,13 @@ export class Ingest<R extends BatchRequest> {
 
     private buildBatchQuery(batch: Batch<R>, archiveHeight: number): string {
         let from = batch.range.from
+        let to = Math.min(archiveHeight, rangeEnd(batch.range))
 
         let req = batch.request
 
         let args: gw.BatchRequest = {
             fromBlock: from,
+            // toBlock: to,
         }
 
         args.logs = req.getLogs().map((l) => ({
@@ -170,7 +168,7 @@ export class Ingest<R extends BatchRequest> {
 
     private async waitForHeight(minimumHeight: number): Promise<number> {
         while (this.archiveHeight < minimumHeight) {
-            this.setArchiveHeight(await this.options.fetchArchiveHeight())
+            await this.fetchArchiveHeight()
             if (this.archiveHeight >= minimumHeight) {
                 return this.archiveHeight
             } else {
@@ -180,12 +178,13 @@ export class Ingest<R extends BatchRequest> {
         return this.archiveHeight
     }
 
+    async fetchArchiveHeight(): Promise<number> {
+        let res: any = await this.options.archive.getStatus()
+        this.setArchiveHeight(statusToHeight(res))
+        return this.archiveHeight
+    }
 
-    private setArchiveHeight(res: gw.StatusResponse): void {
-        let height = res.parquetBlockNumber > res.dbMinBlockNumber ? res.dbMaxBlockNumber : res.parquetBlockNumber
-        if (height == 0) {
-            height = -1
-        }
+    private setArchiveHeight(height: number): void {
         this.archiveHeight = Math.max(this.archiveHeight, height)
     }
 

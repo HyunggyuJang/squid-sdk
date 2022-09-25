@@ -1,12 +1,12 @@
-import {Logger, createLogger} from '@subsquid/logger'
-import {ResilientRpcClient} from '@subsquid/rpc-client/lib/resilient'
-import {runProgram, last, def} from '@subsquid/util-internal'
-import {jsonRequest} from '@subsquid/util-internal-json-request'
-import {Batch, mergeBatches, applyRangeBound, getBlocksCount} from './batch/generic'
-import {PlainBatchRequest, BatchRequest} from './batch/request'
-import {Chain} from './chain'
-import {BlockData, Ingest} from './ingest'
-import {LogOptions} from './interfaces/dataHandlers'
+import { Logger, createLogger } from '@subsquid/logger'
+import { ResilientRpcClient } from '@subsquid/rpc-client/lib/resilient'
+import { runProgram, last, def } from '@subsquid/util-internal'
+import { Archive } from './archive'
+import { Batch, mergeBatches, applyRangeBound, getBlocksCount } from './batch/generic'
+import { PlainBatchRequest, BatchRequest } from './batch/request'
+import { Chain } from './chain'
+import { BlockData, Ingest } from './ingest'
+import { LogOptions } from './interfaces/dataHandlers'
 import {
     LogItem,
     TransactionItem,
@@ -16,11 +16,12 @@ import {
     DataSelection,
     MayBeDataSelection,
 } from './interfaces/dataSelection'
-import {Database} from './interfaces/db'
-import {EvmBlock} from './interfaces/evm'
-import {Metrics} from './metrics'
-import {withErrorContext, timeInterval} from './util/misc'
-import {Range} from './util/range'
+import { Database } from './interfaces/db'
+import { EvmBlock } from './interfaces/evm'
+import { Metrics } from './metrics'
+import {statusToHeight} from './util/gateway'
+import { withErrorContext, timeInterval } from './util/misc'
+import { Range } from './util/range'
 
 export interface DataSource {
     /**
@@ -44,8 +45,8 @@ export interface DataSource {
  * type BlockItem = BatchProcessorItem<typeof processor>
  */
 export type BatchProcessorItem<T> = T extends EvmBatchProcessor<infer I> ? I : never
-export type BatchProcessorLogItem<T> = Extract<BatchProcessorItem<T>, {kind: 'event'}>
-export type BatchProcessorTransactionItem<T> = Extract<BatchProcessorItem<T>, {kind: 'transaction'}>
+export type BatchProcessorLogItem<T> = Extract<BatchProcessorItem<T>, { kind: 'event' }>
+export type BatchProcessorTransactionItem<T> = Extract<BatchProcessorItem<T>, { kind: 'transaction' }>
 
 export interface BatchContext<Store, Item> {
     /**
@@ -83,7 +84,7 @@ export interface BatchBlock<Item> {
  * both to database and chain nodes,
  * thus providing much better performance.
  */
-export class EvmBatchProcessor<Item extends {kind: string; address: string} = LogItem<'*'> | TransactionItem<'*'>> {
+export class EvmBatchProcessor<Item extends { kind: string; address: string } = LogItem<'*'> | TransactionItem<'*'>> {
     private batches: Batch<PlainBatchRequest>[] = []
     private options: any = {}
     private src?: DataSource
@@ -93,7 +94,7 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
 
     private add(request: PlainBatchRequest, range?: Range): void {
         this.batches.push({
-            range: range || {from: 0},
+            range: range || { from: 0 },
             request,
         })
     }
@@ -227,15 +228,14 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
                 )
 
                 let ingest = new Ingest({
-                    archiveRequest: this.archiveRequest(),
-                    fetchArchiveHeight: this.fetchArchiveHeight(),
+                    archive: this.archiveClient(),
                     batches: this.createBatches(blockRange),
                 })
 
                 this.metrics.updateProgress(
-                    await this.fetchArchiveHeight()(),
-                    getBlocksCount(this.wholeRange(), 0, ingest.getLatestKnownArchiveHeight()),
-                    getBlocksCount(this.wholeRange(), heightAtStart + 1, ingest.getLatestKnownArchiveHeight())
+                    await ingest.fetchArchiveHeight(),
+                    getBlocksCount(this.wholeRange(), 0, await ingest.getLatestKnownArchiveHeight()),
+                    getBlocksCount(this.wholeRange(), heightAtStart + 1, await ingest.getLatestKnownArchiveHeight())
                 )
 
                 let prometheusServer = await this.metrics.serve(this.getPrometheusPort())
@@ -247,11 +247,20 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
         )
     }
 
+    @def
+    protected archiveClient(): Archive {
+        return new Archive({
+            url: this.getArchiveEndpoint(),
+            log: this.getLogger(),
+            metrics: this.metrics,
+            id: this.getId()
+        })
+    }
 
     @def
     protected chainClient(): ResilientRpcClient {
         let url = this.getChainEndpoint()
-        let log = this.getLogger().child('chain-rpc', {url})
+        let log = this.getLogger().child('chain-rpc', { url })
         let metrics = this.metrics
         let counter = 0
 
@@ -309,129 +318,19 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
     }
 
     @def
-    protected archiveRequest(): (query: string) => Promise<any> {
-        const archiveUrl = this.getArchiveEndpoint()
-
-        let log = this.getLogger().child('archive-request', {archiveUrl})
-        let counter = 0
-
-        return async (archiveQuery) => {
-            let archiveRequestId = counter
-            counter = (counter + 1) % 1000
-
-            log.debug(
-                {
-                    archiveRequestId,
-                    archiveQuery,
-                },
-                'request'
-            )
-
-            let response = await jsonRequest({
-                headers: {
-                    'x-squid-id': this.getId(),
-                },
-                url: archiveUrl + '/query',
-                query: archiveQuery,
-                timeout: 60_000,
-                retry: {
-                    log: (err, errorsInRow, backoff) => {
-                        this.metrics.registerArchiveRetry(archiveUrl, errorsInRow)
-                        log.warn(
-                            {
-                                archiveRequestId,
-                                archiveQuery,
-                                backoff,
-                                reason: err.message,
-                            },
-                            'retry'
-                        )
-                    },
-                },
-            }).catch(withErrorContext({archiveUrl, archiveRequestId, archiveQuery}))
-
-            this.metrics.registerArchiveResponse(archiveUrl)
-            log.debug(
-                {
-                    archiveUrl,
-                    archiveRequestId,
-                    archiveResponse: log.isTrace() ? response : undefined,
-                },
-                'response'
-            )
-
-            return response
-        }
-    }
-
-    protected fetchArchiveHeight(): () => Promise<any> {
-        const archiveUrl = this.getArchiveEndpoint()
-
-        let log = this.getLogger().child('archive-request', {archiveUrl})
-        let counter = 0
-
-        return async () => {
-            let archiveRequestId = counter
-            counter = (counter + 1) % 1000
-
-            log.debug(
-                {
-                    archiveRequestId,
-                },
-                'request'
-            )
-
-            let response = await jsonRequest({
-                headers: {
-                    'x-squid-id': this.getId(),
-                },
-                method: 'GET',
-                url: archiveUrl + '/status',
-                query: '',
-                timeout: 60_000,
-                retry: {
-                    log: (err, errorsInRow, backoff) => {
-                        this.metrics.registerArchiveRetry(archiveUrl, errorsInRow)
-                        log.warn(
-                            {
-                                archiveRequestId,
-                                backoff,
-                                reason: err.message,
-                            },
-                            'retry'
-                        )
-                    },
-                },
-            }).catch(withErrorContext({archiveUrl, archiveRequestId}))
-
-            this.metrics.registerArchiveResponse(archiveUrl)
-            log.debug(
-                {
-                    archiveUrl,
-                    archiveRequestId,
-                    archiveResponse: log.isTrace() ? response : undefined,
-                },
-                'response'
-            )
-
-            return response
-        }
-    }
-
-    @def
     protected getChain(): Chain {
         return new Chain(() => this.chainClient())
     }
 
     protected getWholeBlockRange(): Range {
-        return this.options.blockRange || {from: 0}
+        return this.options.blockRange || { from: 0 }
     }
 
     @def
-    protected wholeRange(): {range: Range}[] {
+    protected wholeRange(): { range: Range }[] {
         return this.createBatches(this.getWholeBlockRange())
     }
-    
+
     protected get lastBlock(): number {
         return this._lastBlock
     }
@@ -441,7 +340,11 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
         this.metrics.setLastProcessedBlock(height)
     }
 
-    private async process(db: Database<any>, ingest: Ingest<BatchRequest>, handler: (ctx: BatchContext<any, Item>) => Promise<void>): Promise<void> {
+    private async process(
+        db: Database<any>,
+        ingest: Ingest<BatchRequest>,
+        handler: (ctx: BatchContext<any, Item>) => Promise<void>
+    ): Promise<void> {
         for await (let batch of ingest.getBlocks()) {
             if (batch.blocks.length == 0) return
 
@@ -483,11 +386,11 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
 
             log.info(
                 `${this.lastBlock} / ${this.metrics.getChainHeight()}, ` +
-                `rate: ${Math.round(this.metrics.getSyncSpeed())} blocks/sec, ` +
-                `mapping: ${Math.round(this.metrics.getMappingSpeed())} blocks/sec, ` +
-                `${Math.round(this.metrics.getMappingItemSpeed())} items/sec, ` +
-                `ingest: ${Math.round(this.metrics.getIngestSpeed())} blocks/sec, ` +
-                `eta: ${timeInterval(this.metrics.getSyncEtaSeconds())}`
+                    `rate: ${Math.round(this.metrics.getSyncSpeed())} blocks/sec, ` +
+                    `mapping: ${Math.round(this.metrics.getMappingSpeed())} blocks/sec, ` +
+                    `${Math.round(this.metrics.getMappingItemSpeed())} items/sec, ` +
+                    `ingest: ${Math.round(this.metrics.getIngestSpeed())} blocks/sec, ` +
+                    `eta: ${timeInterval(this.metrics.getSyncEtaSeconds())}`
             )
         }
     }
