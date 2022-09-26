@@ -1,9 +1,6 @@
-export type QualifiedName = string
-
-
 export interface EvmBlock {
     id: string
-    number: bigint
+    height: number
     hash: string
     parentHash: string
     nonce: bigint
@@ -22,33 +19,31 @@ export interface EvmBlock {
     timestamp: number
 }
 
-
 export interface EvmTransaction {
     id: string
-    source: string,
-    gas: bigint,
-    gasPrice: bigint,
-    hash: string,
-    input: string,
-    nonce: bigint,
-    dest?: string,
-    index: bigint,
-    value: string,
-    kind: bigint,
-    chainId: bigint,
-    v: bigint,
-    r: string,
-    s: string,
+    source: string
+    gas: bigint
+    gasPrice: bigint
+    hash: string
+    input: string
+    nonce: bigint
+    dest?: string
+    index: number
+    value: string
+    kind: bigint
+    chainId: bigint
+    v: bigint
+    r: string
+    s: string
 }
 
-
 export interface EvmLog {
-    id: string,
-    address: string,
-    data: string,
-    index: bigint,
-    removed: boolean,
-    topics: string[],
-    transaction: EvmTransaction,
-    transactionIndex: bigint,
+    id: string
+    address: string
+    data: string
+    index: number
+    removed: boolean
+    topics: string[]
+    transaction: EvmTransaction
+    transactionIndex: number
 }

@@ -1,7 +1,6 @@
-import {Progress, Speed} from "@subsquid/util-internal-counters"
-import {createPrometheusServer, ListeningServer} from "@subsquid/util-internal-prometheus-server"
-import {collectDefaultMetrics, Counter, Gauge, Registry} from "prom-client"
-
+import {Progress, Speed} from '@subsquid/util-internal-counters'
+import {createPrometheusServer, ListeningServer} from '@subsquid/util-internal-prometheus-server'
+import {collectDefaultMetrics, Counter, Gauge, Registry} from 'prom-client'
 
 export class Metrics {
     private chainHeight = -1
@@ -16,7 +15,7 @@ export class Metrics {
         name: 'sqd_processor_last_block',
         help: 'Last processed block',
         registers: [this.registry],
-        aggregator: 'max'
+        aggregator: 'max',
     })
 
     private chainHeightGauge = new Gauge({
@@ -24,28 +23,28 @@ export class Metrics {
         help: 'Chain height of the data source',
         registers: [this.registry],
         aggregator: 'max',
-        collect: this.collect(() => this.chainHeight)
+        collect: this.collect(() => this.chainHeight),
     })
 
     private mappingSpeedGauge = new Gauge({
         name: 'sqd_processor_mapping_blocks_per_second',
         help: 'Mapping performance',
         registers: [this.registry],
-        collect: this.collect(() => this.mappingSpeed.speed())
+        collect: this.collect(() => this.mappingSpeed.speed()),
     })
 
     private ingestSpeedGauge = new Gauge({
         name: 'sqd_processor_ingest_blocks_per_second',
         help: 'Data fetching speed',
         registers: [this.registry],
-        collect: this.collect(() => this.ingestSpeed.speed())
+        collect: this.collect(() => this.ingestSpeed.speed()),
     })
 
     private syncEtaGauge = new Gauge({
         name: 'sqd_processor_sync_eta_seconds',
         help: 'Estimated time until all required blocks will be processed or until chain height will be reached',
         registers: [this.registry],
-        collect: this.collect(() => this.blockProgress.eta())
+        collect: this.collect(() => this.blockProgress.eta()),
     })
 
     private syncRatioGauge = new Gauge({
@@ -53,7 +52,7 @@ export class Metrics {
         help: 'Percentage of processed blocks',
         registers: [this.registry],
         aggregator: 'max',
-        collect: this.collect(() => this.blockProgress.ratio())
+        collect: this.collect(() => this.blockProgress.ratio()),
     })
 
     private archiveHttpErrorsCounter = new Counter({
@@ -61,7 +60,7 @@ export class Metrics {
         help: 'Number of archive http connection errors',
         registers: [this.registry],
         aggregator: 'sum',
-        labelNames: ['url']
+        labelNames: ['url'],
     })
 
     private archiveHttpErrorsInRowGauge = new Gauge({
@@ -69,7 +68,7 @@ export class Metrics {
         help: 'Number of archive http connection errors happened in row, without single successful request',
         registers: [this.registry],
         aggregator: 'sum',
-        labelNames: ['url']
+        labelNames: ['url'],
     })
 
     private chainRpcErrorsCounter = new Counter({
@@ -77,7 +76,7 @@ export class Metrics {
         help: 'Number of chain rpc connection errors',
         registers: [this.registry],
         aggregator: 'sum',
-        labelNames: ['url']
+        labelNames: ['url'],
     })
 
     private chainRpcErrorsInRowGauge = new Gauge({
@@ -85,7 +84,7 @@ export class Metrics {
         help: 'Number of chain rpc connection errors happened in row, without single successful request',
         registers: [this.registry],
         aggregator: 'sum',
-        labelNames: ['url']
+        labelNames: ['url'],
     })
 
     private chainRpcAvgResponseTime = new Gauge({
@@ -95,11 +94,11 @@ export class Metrics {
         collect: this.collect(() => {
             let speed = this.rpcSpeed.speed()
             return speed == 0 ? 0 : 1 / speed
-        })
+        }),
     })
 
     private collect(fn: () => number) {
-        return function(this: Gauge<string>) {
+        return function (this: Gauge<string>) {
             this.set(fn())
         }
     }
@@ -135,7 +134,7 @@ export class Metrics {
         batchFetchStartTime: bigint,
         batchFetchEndTime: bigint,
         batchMappingStartTime: bigint,
-        batchMappingEndTime: bigint,
+        batchMappingEndTime: bigint
     ): void {
         this.ingestSpeed.push(batchSize, batchFetchStartTime, batchFetchEndTime)
         this.mappingSpeed.push(batchSize, batchMappingStartTime, batchMappingEndTime)

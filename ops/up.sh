@@ -10,7 +10,6 @@ function Rush() {
 
 Rush install || exit 1
 Rush build || exit 1
-(cd cli && npx oclif manifest) || exit 1
 
 Rush publish --include-all --version-policy npm --publish --registry http://localhost:4873
 

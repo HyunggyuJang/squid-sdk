@@ -1,4 +1,4 @@
-import { EvmTopicSet } from './dataHandlers'
+import {EvmTopicSet} from './dataHandlers'
 
 export interface QueryResponse {
     status: StatusResponse
@@ -31,17 +31,17 @@ export interface FieldSelection {
     log?: LogFieldSelection
 }
 
-export type BlockFieldSelection = { [P in keyof Block]?: boolean }
+export type BlockFieldSelection = {[P in keyof Block]?: boolean}
 
-export type LogFieldSelection = { [P in keyof Log]?: boolean }
+export type LogFieldSelection = {[P in keyof Log]?: boolean}
 
-export type TransactionFieldSelection = { [P in keyof Transaction]?: boolean }
+export type TransactionFieldSelection = {[P in keyof Transaction]?: boolean}
 
 export interface Block {
-    number: bigint
+    number: number
     hash: string
     parentHash: string
-    nonce: bigint
+    nonce: string
     sha3Uncles: string
     logsBloom: string
     transactionsRoot: string
@@ -51,7 +51,7 @@ export interface Block {
     difficulty: string
     totalDifficulty: string
     extraData: string
-    size: bigint
+    size: string
     gasLimit: string
     gasUsed: string
     timestamp: number
@@ -59,17 +59,17 @@ export interface Block {
 
 export interface Transaction {
     source: string
-    gas: bigint
-    gasPrice: bigint
+    gas: string
+    gasPrice: string
     hash: string
     input: string
-    nonce: bigint
+    nonce: string
     dest?: string
-    index: bigint
+    index: number
     value: string
-    kind: bigint
-    chainId: bigint
-    v: bigint
+    kind: string
+    chainId: string
+    v: string
     r: string
     s: string
 }
@@ -77,10 +77,10 @@ export interface Transaction {
 export interface Log {
     address: string
     data: string
-    index: bigint
+    index: number
     removed: boolean
     topics: string[]
-    transactionIndex: bigint
+    transactionIndex: number
 }
 
 export interface BatchBlock {

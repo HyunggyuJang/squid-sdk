@@ -4,7 +4,6 @@ import {Range} from '../util/range'
 import {LogData, LogDataRequest, LogItem, LogRequest} from './dataSelection'
 import {EvmBlock} from './evm'
 
-
 export interface CommonHandlerContext<S> {
     /**
      * Not yet public description of chain metadata
@@ -22,40 +21,34 @@ export interface CommonHandlerContext<S> {
     block: EvmBlock
 }
 
-
 type BlockLogsRequest = {
     [name in string]?: boolean | {event: LogRequest}
 }
 
-
 type BlockLogItem<R> = R extends true
     ? LogItem<string, true>
     : R extends BlockLogsRequest
-        ? ["*"] extends [keyof R]
-            ? [keyof R] extends ["*"]
-                ? LogItem<string, R["*"]>
-                : { [A in keyof R]: LogItem<A, R[A]> }[keyof R]
-            : { [A in keyof R]: LogItem<A, R[A]> }[keyof R] | LogItem<"*">
-        : LogItem<string>
-
+    ? ['*'] extends [keyof R]
+        ? [keyof R] extends ['*']
+            ? LogItem<string, R['*']>
+            : {[A in keyof R]: LogItem<A, R[A]>}[keyof R]
+        : {[A in keyof R]: LogItem<A, R[A]>}[keyof R] | LogItem<'*'>
+    : LogItem<string>
 
 interface BlockItemRequest {
     logs?: boolean | BlockLogsRequest
 }
 
-
 type BlockItem<R> = R extends true
     ? LogItem<true>
     : R extends BlockItemRequest
-        ? LogItem<R['logs']>
-        : BlockLogItem<false>
-
+    ? LogItem<R['logs']>
+    : BlockLogItem<false>
 
 export interface BlockHandlerDataRequest {
     includeAllBlocks?: boolean
     items?: boolean | BlockItemRequest
 }
-
 
 export type BlockHandlerContext<S, R extends BlockHandlerDataRequest = {}> = CommonHandlerContext<S> & {
     /**
@@ -65,28 +58,22 @@ export type BlockHandlerContext<S, R extends BlockHandlerDataRequest = {}> = Com
      * before the call. All child calls are placed before the parent call.
      * List of block events is a subsequence of unified log.
      */
-    items: BlockItem<R["items"]>[]
+    items: BlockItem<R['items']>[]
 }
-
 
 export interface BlockHandler<S, R extends BlockHandlerDataRequest = {}> {
     (ctx: BlockHandlerContext<S, R>): Promise<void>
 }
 
-
-export type LogHandlerContext<S, R extends LogDataRequest = {log: true}>
-    = CommonHandlerContext<S> & LogData<R>
-
+export type LogHandlerContext<S, R extends LogDataRequest = {log: true}> = CommonHandlerContext<S> & LogData<R>
 
 export interface LogHandler<S, R extends LogDataRequest = {log: true}> {
     (ctx: LogHandlerContext<S, R>): Promise<void>
 }
 
-
 export interface BlockRangeOption {
     range?: Range
 }
-
 
 export interface LogOptions extends BlockRangeOption {
     /**
@@ -94,6 +81,5 @@ export interface LogOptions extends BlockRangeOption {
      */
     filter?: EvmTopicSet
 }
-
 
 export type EvmTopicSet = string[][]

@@ -1,12 +1,12 @@
-import { Logger, createLogger } from '@subsquid/logger'
-import { ResilientRpcClient } from '@subsquid/rpc-client/lib/resilient'
-import { runProgram, last, def } from '@subsquid/util-internal'
-import { Archive } from './archive'
-import { Batch, mergeBatches, applyRangeBound, getBlocksCount } from './batch/generic'
-import { PlainBatchRequest, BatchRequest } from './batch/request'
-import { Chain } from './chain'
-import { BlockData, Ingest } from './ingest'
-import { LogOptions } from './interfaces/dataHandlers'
+import {Logger, createLogger} from '@subsquid/logger'
+import {ResilientRpcClient} from '@subsquid/rpc-client/lib/resilient'
+import {runProgram, last, def} from '@subsquid/util-internal'
+import {Archive} from './archive'
+import {Batch, mergeBatches, applyRangeBound, getBlocksCount} from './batch/generic'
+import {PlainBatchRequest, BatchRequest} from './batch/request'
+import {Chain} from './chain'
+import {BlockData, Ingest} from './ingest'
+import {LogOptions} from './interfaces/dataHandlers'
 import {
     LogItem,
     TransactionItem,
@@ -16,12 +16,12 @@ import {
     DataSelection,
     MayBeDataSelection,
 } from './interfaces/dataSelection'
-import { Database } from './interfaces/db'
-import { EvmBlock } from './interfaces/evm'
-import { Metrics } from './metrics'
+import {Database} from './interfaces/db'
+import {EvmBlock} from './interfaces/evm'
+import {Metrics} from './metrics'
 import {statusToHeight} from './util/gateway'
-import { withErrorContext, timeInterval } from './util/misc'
-import { Range } from './util/range'
+import {withErrorContext, timeInterval} from './util/misc'
+import {Range} from './util/range'
 
 export interface DataSource {
     /**
@@ -45,8 +45,8 @@ export interface DataSource {
  * type BlockItem = BatchProcessorItem<typeof processor>
  */
 export type BatchProcessorItem<T> = T extends EvmBatchProcessor<infer I> ? I : never
-export type BatchProcessorLogItem<T> = Extract<BatchProcessorItem<T>, { kind: 'event' }>
-export type BatchProcessorTransactionItem<T> = Extract<BatchProcessorItem<T>, { kind: 'transaction' }>
+export type BatchProcessorLogItem<T> = Extract<BatchProcessorItem<T>, {kind: 'event'}>
+export type BatchProcessorTransactionItem<T> = Extract<BatchProcessorItem<T>, {kind: 'transaction'}>
 
 export interface BatchContext<Store, Item> {
     /**
@@ -84,7 +84,7 @@ export interface BatchBlock<Item> {
  * both to database and chain nodes,
  * thus providing much better performance.
  */
-export class EvmBatchProcessor<Item extends { kind: string; address: string } = LogItem<'*'> | TransactionItem<'*'>> {
+export class EvmBatchProcessor<Item extends {kind: string; address: string} = LogItem<'*'> | TransactionItem<'*'>> {
     private batches: Batch<PlainBatchRequest>[] = []
     private options: any = {}
     private src?: DataSource
@@ -94,7 +94,7 @@ export class EvmBatchProcessor<Item extends { kind: string; address: string } = 
 
     private add(request: PlainBatchRequest, range?: Range): void {
         this.batches.push({
-            range: range || { from: 0 },
+            range: range || {from: 0},
             request,
         })
     }
@@ -253,14 +253,14 @@ export class EvmBatchProcessor<Item extends { kind: string; address: string } = 
             url: this.getArchiveEndpoint(),
             log: this.getLogger(),
             metrics: this.metrics,
-            id: this.getId()
+            id: this.getId(),
         })
     }
 
     @def
     protected chainClient(): ResilientRpcClient {
         let url = this.getChainEndpoint()
-        let log = this.getLogger().child('chain-rpc', { url })
+        let log = this.getLogger().child('chain-rpc', {url})
         let metrics = this.metrics
         let counter = 0
 
@@ -323,11 +323,11 @@ export class EvmBatchProcessor<Item extends { kind: string; address: string } = 
     }
 
     protected getWholeBlockRange(): Range {
-        return this.options.blockRange || { from: 0 }
+        return this.options.blockRange || {from: 0}
     }
 
     @def
-    protected wholeRange(): { range: Range }[] {
+    protected wholeRange(): {range: Range}[] {
         return this.createBatches(this.getWholeBlockRange())
     }
 
@@ -352,8 +352,8 @@ export class EvmBatchProcessor<Item extends { kind: string; address: string } = 
             let mappingStartTime = process.hrtime.bigint()
             let blocks = batch.blocks
 
-            let from = Number(blocks[0].header.number)
-            let to = Number(last(blocks).header.number)
+            let from = Number(blocks[0].header.height)
+            let to = Number(last(blocks).header.height)
             await db.transact(from, to, (store) => {
                 return handler({
                     _chain: this.getChain(),

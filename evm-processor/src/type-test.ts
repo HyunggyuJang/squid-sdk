@@ -1,20 +1,19 @@
-import {BatchContext, EvmBatchProcessor} from "./processor"
-
+import {BatchContext, EvmBatchProcessor} from './processor'
 
 const db: any = {}
 
-
 function getItem<I>(cb: (item: I) => void) {
-    return async function(ctx: BatchContext<any, I>) {
-    }
+    return async function (ctx: BatchContext<any, I>) {}
 }
 
-
 new EvmBatchProcessor()
-.addLog("0xaadsfadfasdfasdfa", {data: {log: true}})
-.addLog("0xaadsfadfasdfasdfa", {data: {log: {topics: true}}})
-.run(db, getItem(item => {
-    if (item.address == '0xaadsfadfasdfasdfa') {
-        item.log
-    }
-}))
+    .addLog('0xaadsfadfasdfasdfa', {data: {log: true}})
+    .addLog('0xaadsfadfasdfasdfa', {data: {log: {topics: true}}})
+    .run(
+        db,
+        getItem((item) => {
+            if (item.address == '0xaadsfadfasdfasdfa') {
+                item.log
+            }
+        })
+    )

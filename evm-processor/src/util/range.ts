@@ -12,7 +12,6 @@ export interface Range {
     to?: number
 }
 
-
 export function rangeIntersection(a: Range, b: Range): Range | undefined {
     let beg = Math.max(a.from, b.from)
     let end = Math.min(rangeEnd(a), rangeEnd(b))
@@ -23,7 +22,6 @@ export function rangeIntersection(a: Range, b: Range): Range | undefined {
         return {from: beg, to: end}
     }
 }
-
 
 export function rangeDifference(a: Range, b: Range): Range[] {
     let i = rangeIntersection(a, b)
@@ -43,11 +41,9 @@ export function rangeDifference(a: Range, b: Range): Range[] {
     return result
 }
 
-
 export function rangeEnd(range: Range): number {
     return range.to ?? Infinity
 }
-
 
 export function rangeContains(big: Range, small: Range): boolean {
     return big.from <= small.from && (big.to == null || big.to >= (small.to ?? Infinity))

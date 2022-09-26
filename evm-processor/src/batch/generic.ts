@@ -1,13 +1,11 @@
-import {assertNotNull} from "@subsquid/util-internal"
-import {Heap} from "@subsquid/util-internal-binary-heap"
-import {Range, rangeDifference, rangeIntersection} from "../util/range"
-
+import {assertNotNull} from '@subsquid/util-internal'
+import {Heap} from '@subsquid/util-internal-binary-heap'
+import {Range, rangeDifference, rangeIntersection} from '../util/range'
 
 export interface Batch<R> {
     range: Range
     request: R
 }
-
 
 export function mergeBatches<R>(batches: Batch<R>[], mergeRequests: (r1: R, r2: R) => R): Batch<R>[] {
     if (batches.length <= 1) return batches
@@ -19,22 +17,22 @@ export function mergeBatches<R>(batches: Batch<R>[], mergeRequests: (r1: R, r2: 
 
     let top = assertNotNull(heap.pop())
     let batch: Batch<R> | undefined
-    while (batch = heap.peek()) {
+    while ((batch = heap.peek())) {
         let i = rangeIntersection(top.range, batch.range)
         if (i == null) {
             union.push(top)
             top = assertNotNull(heap.pop())
         } else {
             heap.pop()
-            rangeDifference(top.range, i).forEach(range => {
+            rangeDifference(top.range, i).forEach((range) => {
                 heap.push({range, request: top.request})
             })
-            rangeDifference(batch.range, i).forEach(range => {
+            rangeDifference(batch.range, i).forEach((range) => {
                 heap.push({range, request: batch!.request})
             })
             heap.push({
                 range: i,
-                request: mergeRequests(top.request, batch.request)
+                request: mergeRequests(top.request, batch.request),
             })
             top = assertNotNull(heap.pop())
         }
@@ -42,7 +40,6 @@ export function mergeBatches<R>(batches: Batch<R>[], mergeRequests: (r1: R, r2: 
     union.push(top)
     return union
 }
-
 
 export function applyRangeBound<R>(batches: Batch<R>[], range?: Range): Batch<R>[] {
     if (range == null) return batches
@@ -55,7 +52,6 @@ export function applyRangeBound<R>(batches: Batch<R>[], range?: Range): Batch<R>
     }
     return result
 }
-
 
 export function getBlocksCount(batches: {range: Range}[], from: number, to: number): number {
     let count = 0

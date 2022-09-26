@@ -1,7 +1,6 @@
 import {EvmTopicSet} from '../interfaces/dataHandlers'
 import {LogDataRequest, LogRequest, TransactionDataRequest} from '../interfaces/dataSelection'
 
-
 type LogReq = {
     address: string
     topics?: EvmTopicSet
@@ -11,7 +10,6 @@ type LogReq = {
 export interface BatchRequest {
     getLogs(): LogReq[]
 }
-
 
 export class PlainBatchRequest implements BatchRequest {
     logs: LogReq[] = []

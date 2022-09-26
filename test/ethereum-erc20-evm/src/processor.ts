@@ -1,38 +1,31 @@
-import {BatchContext, BatchProcessorItem, EvmBatchProcessor, EvmBlock} from "@subsquid/evm-processor"
-import {Store, TypeormDatabase} from "@subsquid/typeorm-store"
-import {In} from "typeorm"
-import * as erc20 from "./erc20"
-import {Account, Token, Transfer} from "./model"
+import { BatchContext, BatchProcessorItem, EvmBatchProcessor, EvmBlock } from '@subsquid/evm-processor'
+import { Store, TypeormDatabase } from '@subsquid/typeorm-store'
+import { In } from 'typeorm'
+import * as erc20 from './erc20'
+import { Account, Token, Transfer } from './model'
 
-
-const processor = new EvmBatchProcessor()
-    .addLog('0xdac17f958d2ee523a2206206994597c13d831ec7',
-        {
-            range: {from: 5_000_000},
-            filter: [["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]],
-            data: {
-                log: {
-                    topics: true,
-                    data: true,
-                    transaction: {
-                        gas: true,
-                        hash: true,
-                    }
-                }
-            }
-        }
-    )
-
+const processor = new EvmBatchProcessor().addLog('0xdac17f958d2ee523a2206206994597c13d831ec7', {
+    range: { from: 5_000_000 },
+    filter: [['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef']],
+    data: {
+        log: {
+            topics: true,
+            data: true,
+            transaction: {
+                gas: true,
+                hash: true,
+            },
+        },
+    },
+})
 
 processor.setDataSource({
     archive: 'https://eth-test.archive.subsquid.io',
-    chain: 'wss://mainnet.infura.io/ws/v3/c8458927a73148cfab30014f6e422bb3'
+    chain: 'wss://mainnet.infura.io/ws/v3/c8458927a73148cfab30014f6e422bb3',
 })
-
 
 type Item = BatchProcessorItem<typeof processor>
 type Ctx = BatchContext<Store, Item>
-
 
 processor.run(new TypeormDatabase(), async (ctx) => {
     let transfersData = getTransfers(ctx)
@@ -47,19 +40,19 @@ processor.run(new TypeormDatabase(), async (ctx) => {
 
     let accounts = new Map<string, Account>()
     for (let accountIdsBatch of splitIntoBatches([...accountIds], 10000)) {
-        await ctx.store.findBy(Account, {id: In(accountIdsBatch)}).then(as => {
-            as.forEach(a => accounts.set(a.id, a))
+        await ctx.store.findBy(Account, { id: In(accountIdsBatch) }).then((as) => {
+            as.forEach((a) => accounts.set(a.id, a))
         })
     }
 
-    let tokens = await ctx.store.findBy(Token, {id: In([...tokenIds])}).then(tokens => {
-        return new Map(tokens.map(t => [t.id, t]))
+    let tokens = await ctx.store.findBy(Token, { id: In([...tokenIds]) }).then((tokens) => {
+        return new Map(tokens.map((t) => [t.id, t]))
     })
 
     let transfers: Transfer[] = []
 
     for (let t of transfersData) {
-        let {id, block, blockHash, timestamp, txHash, amount, gas} = t
+        let { id, block, blockHash, timestamp, txHash, amount, gas } = t
 
         let from = getAccount(accounts, t.fromId)
         let to = getAccount(accounts, t.toId)
@@ -74,23 +67,24 @@ processor.run(new TypeormDatabase(), async (ctx) => {
             tokens.set(token.id, token)
         }
 
-        transfers.push(new Transfer({
-            id,
-            blockNumber: block,
-            timestamp: timestamp,
-            txHash,
-            from,
-            to,
-            amount,
-            gas
-        }))
+        transfers.push(
+            new Transfer({
+                id,
+                blockNumber: block,
+                timestamp: timestamp,
+                txHash,
+                from,
+                to,
+                amount,
+                gas,
+            })
+        )
     }
 
     await ctx.store.save(Array.from(accounts.values()))
     await ctx.store.save(Array.from(tokens.values()))
     await ctx.store.insert(transfers)
 })
-
 
 interface TransferEvent {
     id: string
@@ -105,7 +99,6 @@ interface TransferEvent {
     tokenId: string
 }
 
-
 function getTransfers(ctx: Ctx): TransferEvent[] {
     let transfers: TransferEvent[] = []
     for (let block of ctx.blocks) {
@@ -113,11 +106,11 @@ function getTransfers(ctx: Ctx): TransferEvent[] {
             if (item.kind === 'log' && item.address === '0xdac17f958d2ee523a2206206994597c13d831ec7') {
                 const log = item.log
 
-                if (log.topics[0] === erc20.events["Transfer(address,address,uint256)"].topic) {
-                    const data = erc20.events["Transfer(address,address,uint256)"].decode(log)
+                if (log.topics[0] === erc20.events['Transfer(address,address,uint256)'].topic) {
+                    const data = erc20.events['Transfer(address,address,uint256)'].decode(log)
                     transfers.push({
                         id: log.id,
-                        block: Number(block.header.number),
+                        block: block.header.height,
                         blockHash: block.header.hash,
                         timestamp: new Date(block.header.timestamp),
                         txHash: log.transaction.hash,
@@ -125,7 +118,7 @@ function getTransfers(ctx: Ctx): TransferEvent[] {
                         toId: data.to,
                         amount: data.value.toBigInt(),
                         gas: log.transaction.gas,
-                        tokenId: log.address
+                        tokenId: log.address,
                     })
                 }
             }
@@ -133,7 +126,6 @@ function getTransfers(ctx: Ctx): TransferEvent[] {
     }
     return transfers
 }
-
 
 function getAccount(m: Map<string, Account>, id: string): Account {
     let acc = m.get(id)
@@ -144,7 +136,6 @@ function getAccount(m: Map<string, Account>, id: string): Account {
     }
     return acc
 }
-
 
 function* splitIntoBatches<T>(list: T[], maxBatchSize: number): Generator<T[]> {
     if (list.length <= maxBatchSize) {
