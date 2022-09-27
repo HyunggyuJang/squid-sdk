@@ -7,8 +7,7 @@ import {EvmBlock, EvmLog, EvmTransaction} from './interfaces/evm'
 import {addErrorContext, withErrorContext} from './util/misc'
 import {Range, rangeEnd} from './util/range'
 import {FULL_REQUEST} from './interfaces/dataSelection'
-import {statusToHeight} from './util/gateway'
-import {ArchiveClient} from './archive'
+import {ArchiveClient, statusToHeight} from './archive'
 
 export type Item =
     | {
@@ -187,8 +186,8 @@ export class Ingest<R extends BatchRequest> {
     }
 
     async fetchArchiveHeight(): Promise<number> {
-        let res: any = await this.options.archive.getStatus()
-        this.setArchiveHeight(statusToHeight(res))
+        let res = await this.options.archive.getHeight()
+        this.setArchiveHeight(res)
         return this.archiveHeight
     }
 

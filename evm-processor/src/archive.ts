@@ -28,6 +28,10 @@ export class ArchiveClient {
         })
     }
 
+    async getHeight(): Promise<number> {
+        return await this.getStatus().then(statusToHeight)
+    }
+
     protected async request<T>(req: Request): Promise<T> {
         let url = req.url
         let method = req.method || 'POST'
@@ -135,4 +139,13 @@ function wait(ms: number): Promise<void> {
     return new Promise((resolve) => {
         setTimeout(resolve, ms)
     })
+}
+
+export function statusToHeight(status: StatusResponse) {
+    let height =
+        status.parquetBlockNumber > status.dbMinBlockNumber ? status.dbMaxBlockNumber : status.parquetBlockNumber
+    if (height == 0) {
+        height = -1
+    }
+    return height
 }
