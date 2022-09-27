@@ -1,21 +1,17 @@
-import {Logger} from '@subsquid/logger'
-import {Metrics} from './metrics'
 import assert from 'assert'
 import fetch, {FetchError, RequestInit} from 'node-fetch'
-import {def} from '@subsquid/util-internal'
 import {QueryResponse, StatusResponse} from './interfaces/gateway'
 
-export interface ArchiveOptions {
+export interface ArchiveClientOptions {
     url: string
-    log: Logger
-    metrics: Metrics
     id: string
+    onRetry?(err: Error, query: string | undefined, errorsInRow: number, backoff: number): void
 }
 
-export class Archive {
+export class ArchiveClient {
     private counter = 0
 
-    constructor(private options: ArchiveOptions) {}
+    constructor(private options: ArchiveClientOptions) {}
 
     async query<T>(archiveQuery: string): Promise<QueryResponse> {
         return await this.request({
@@ -32,8 +28,7 @@ export class Archive {
         })
     }
 
-    private async request<T>(req: Request): Promise<T> {
-        let log = this.getLogger()
+    protected async request<T>(req: Request): Promise<T> {
         let url = req.url
         let method = req.method || 'POST'
         let headers: Record<string, string> = {
@@ -43,15 +38,6 @@ export class Archive {
         }
         let body: string | undefined
         this.counter = (this.counter + 1) % 1000
-
-        log.debug(
-            {
-                archiveUrl: this.options.url,
-                archiveRequestId: this.counter,
-                archiveQuery: req.query,
-            },
-            'request'
-        )
 
         if (method === 'POST') {
             headers['content-type'] = 'application/json; charset=UTF-8'
@@ -70,45 +56,14 @@ export class Archive {
             if (isRetryableError(result)) {
                 let timeout = backoff[Math.min(errors, backoff.length - 1)]
                 errors += 1
-                this.options.metrics.registerArchiveRetry(this.options.url, errors)
-                this.getLogger().warn(
-                    {
-                        archiveUrl: this.options.url,
-                        archiveRequestId: this.counter,
-                        archiveQuery: req.query,
-                        backoff,
-                        reason: result.message,
-                    },
-                    'retry'
-                )
-                await wait(timeout)
+                await wait(timeout).then(() => this.options.onRetry?.(result, body, errors, timeout))
             } else if (result instanceof Error) {
                 throw result
             } else {
-                this.options.metrics.registerArchiveResponse(this.options.url)
-                log.debug(
-                    {
-                        archiveUrl: this.options.url,
-                        archiveRequestId: this.counter,
-                        archiveQuery: req.query,
-                        archiveResponse: log.isTrace() ? result : undefined,
-                    },
-                    'response'
-                )
                 return result
             }
         }
     }
-
-    @def
-    private getLogger() {
-        return this.options.log.child('archive', {url: this.options.url})
-    }
-}
-
-export interface JSONRequestRetryConfig {
-    log?: (err: Error, numberOfFailures: number, backoffMS: number) => void
-    maxCount?: number
 }
 
 export interface Request {
@@ -116,7 +71,6 @@ export interface Request {
     url: string
     query?: string
     method?: 'GET' | 'POST'
-    retry?: boolean | JSONRequestRetryConfig
 }
 
 async function performFetch(url: string, init: RequestInit): Promise<any> {

@@ -5,7 +5,7 @@ type Req<T> = {
 }
 
 type PlainReq<T> = {
-    [P in keyof T]?: boolean
+    [P in keyof T]?: true
 }
 
 type Select<T, R extends Req<T>> = {
@@ -139,6 +139,9 @@ export interface MayBeDataSelection<R> {
 }
 
 export const FULL_REQUEST: Record<string, any> = {
+    block: {
+        
+    },
     log: {
         data: true,
         removed: true,

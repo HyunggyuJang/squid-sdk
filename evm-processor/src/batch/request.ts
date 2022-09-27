@@ -2,7 +2,7 @@ import {EvmTopicSet} from '../interfaces/dataHandlers'
 import {LogDataRequest, LogRequest, TransactionDataRequest} from '../interfaces/dataSelection'
 
 type LogReq = {
-    address: string
+    address: string[] | null
     topics?: EvmTopicSet
     data?: LogDataRequest
 }

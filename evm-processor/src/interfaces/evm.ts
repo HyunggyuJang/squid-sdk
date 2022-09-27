@@ -14,8 +14,8 @@ export interface EvmBlock {
     totalDifficulty: string
     extraData: string
     size: bigint
-    gasLimit: string
-    gasUsed: string
+    gasLimit: bigint
+    gasUsed: bigint
     timestamp: number
 }
 

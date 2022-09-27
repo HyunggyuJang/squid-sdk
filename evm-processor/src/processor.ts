@@ -1,7 +1,7 @@
 import {Logger, createLogger} from '@subsquid/logger'
 import {ResilientRpcClient} from '@subsquid/rpc-client/lib/resilient'
-import {runProgram, last, def} from '@subsquid/util-internal'
-import {Archive} from './archive'
+import {runProgram, last, def, wait} from '@subsquid/util-internal'
+import {ArchiveClient, Request} from './archive'
 import {Batch, mergeBatches, applyRangeBound, getBlocksCount} from './batch/generic'
 import {PlainBatchRequest, BatchRequest} from './batch/request'
 import {Chain} from './chain'
@@ -19,7 +19,6 @@ import {
 import {Database} from './interfaces/db'
 import {EvmBlock} from './interfaces/evm'
 import {Metrics} from './metrics'
-import {statusToHeight} from './util/gateway'
 import {withErrorContext, timeInterval} from './util/misc'
 import {Range} from './util/range'
 
@@ -99,21 +98,24 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
         })
     }
 
-    addLog<A extends string>(
+    addLog<A extends string | ReadonlyArray<string>>(
         contractAddress: A,
         options?: LogOptions & NoDataSelection
-    ): EvmBatchProcessor<AddLogItem<Item, LogItem<A, true>>>
+    ): EvmBatchProcessor<AddLogItem<Item, LogItem<A extends ReadonlyArray<infer I> ? I : A, true>>>
 
-    addLog<A extends string, R extends LogDataRequest>(
+    addLog<A extends string | ReadonlyArray<string>, R extends LogDataRequest>(
         contractAddress: A,
         options: LogOptions & DataSelection<R>
-    ): EvmBatchProcessor<AddLogItem<Item, LogItem<A, R>>>
+    ): EvmBatchProcessor<AddLogItem<Item, LogItem<A extends ReadonlyArray<infer I> ? I : A, R>>>
 
-    addLog(contractAddress: string, options?: LogOptions & MayBeDataSelection<LogDataRequest>): EvmBatchProcessor<any> {
+    addLog(
+        contractAddress: string | string[],
+        options?: LogOptions & MayBeDataSelection<LogDataRequest>
+    ): EvmBatchProcessor<any> {
         this.assertNotRunning()
         let req = new PlainBatchRequest()
         req.logs.push({
-            address: contractAddress.toLowerCase(),
+            address: Array.isArray(contractAddress) ? contractAddress : [contractAddress],
             topics: options?.filter,
             data: options?.data,
         })
@@ -248,13 +250,59 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
     }
 
     @def
-    protected archiveClient(): Archive {
-        return new Archive({
-            url: this.getArchiveEndpoint(),
-            log: this.getLogger(),
-            metrics: this.metrics,
-            id: this.getId(),
-        })
+    protected archiveClient(): ArchiveClient {
+        let url = this.getArchiveEndpoint()
+        let log = this.getLogger().child('archive', {url})
+        let counter = 0
+        let metrics = this.metrics
+        let id = this.getId()
+
+        class ProcessorArchiveClient extends ArchiveClient {
+            constructor(){
+                super({
+                    url,
+                    id,
+                    onRetry(err, query, errorsInRow, backoff) {
+                        metrics.registerArchiveRetry(url, errorsInRow)
+                        log.warn(
+                            {
+                                archiveUrl: url,
+                                archiveRequestId: counter,
+                                archiveQuery: query,
+                                backoff,
+                                reason: err.message,
+                            },
+                            'retry'
+                        )
+                    }
+                })
+            }
+
+            protected async request<T>(req: Request): Promise<T> {
+                log.debug(
+                    {
+                        archiveUrl: url,
+                        archiveRequestId: counter,
+                        archiveQuery: req.query,
+                    },
+                    'request'
+                )
+                let result: T = await super.request(req)
+                metrics.registerArchiveResponse(url)
+                log.debug(
+                    {
+                        archiveUrl: url,
+                        archiveRequestId: counter,
+                        archiveQuery: req.query,
+                        archiveResponse: log.isTrace() ? result : undefined,
+                    },
+                    'response'
+                )
+                return result
+            }
+        }
+
+        return new ProcessorArchiveClient()
     }
 
     @def

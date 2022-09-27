@@ -2,7 +2,7 @@ import {EvmTopicSet} from './dataHandlers'
 
 export interface QueryResponse {
     status: StatusResponse
-    data: BatchBlock[]
+    data: BatchBlock[][]
     metrics: any
     nextBlock: number
 }
@@ -20,7 +20,7 @@ export interface BatchRequest {
 }
 
 export interface LogRequest {
-    address: string
+    address: string[] | null
     topics: EvmTopicSet
     fieldSelection: FieldSelection
 }
@@ -31,11 +31,11 @@ export interface FieldSelection {
     log?: LogFieldSelection
 }
 
-export type BlockFieldSelection = {[P in keyof Block]?: boolean}
+export type BlockFieldSelection = {[P in keyof Block]?: true}
 
-export type LogFieldSelection = {[P in keyof Log]?: boolean}
+export type LogFieldSelection = {[P in keyof Log]?: true}
 
-export type TransactionFieldSelection = {[P in keyof Transaction]?: boolean}
+export type TransactionFieldSelection = {[P in keyof Transaction]?: true}
 
 export interface Block {
     number: number

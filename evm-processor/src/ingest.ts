@@ -7,8 +7,8 @@ import {EvmBlock, EvmLog, EvmTransaction} from './interfaces/evm'
 import {addErrorContext, withErrorContext} from './util/misc'
 import {Range, rangeEnd} from './util/range'
 import {FULL_REQUEST} from './interfaces/dataSelection'
-import {Archive} from './archive'
 import {statusToHeight} from './util/gateway'
+import {ArchiveClient} from './archive'
 
 export type Item =
     | {
@@ -39,7 +39,7 @@ export interface DataBatch<R> {
 }
 
 export interface IngestOptions<R> {
-    archive: Archive
+    archive: ArchiveClient
     archivePollIntervalMS?: number
     batches: Batch<R>[]
 }
@@ -59,7 +59,7 @@ export class Ingest<R extends BatchRequest> {
     async *getBlocks(): AsyncGenerator<DataBatch<R>> {
         while (this.batches.length) {
             if (this.fetchLoopIsStopped) {
-                this.fetchLoop().catch()
+                this.fetchLoop()
             }
             yield await assertNotNull(this.queue[0])
             this.queue.shift()
@@ -101,6 +101,7 @@ export class Ingest<R extends BatchRequest> {
                     this.setArchiveHeight(statusToHeight(response.status))
 
                     let blocks = response.data
+                        .flat()
                         .map(tryMapGatewayBlock)
                         .sort((a, b) => Number(a.header.height - b.header.height))
                     if (blocks.length) {
@@ -111,13 +112,16 @@ export class Ingest<R extends BatchRequest> {
 
                     let from = batch.range.from
                     let to: number
-                    if (
-                        (blocks.length === 0 || last(blocks).header.height < rangeEnd(batch.range)) &&
-                        archiveHeight < rangeEnd(batch.range)
-                    ) {
+                    if (blocks.length === 0 || last(blocks).header.height < rangeEnd(batch.range)) {
                         to = response.nextBlock - 1
                         this.batches[0] = {
-                            range: {from: response.nextBlock, to: batch.range.to},
+                            range: {from: to + 1, to: batch.range.to},
+                            request: batch.request,
+                        }
+                    } else if (archiveHeight < rangeEnd(batch.range)) {
+                        to = archiveHeight
+                        this.batches[0] = {
+                            range: {from: to + 1, to: batch.range.to},
                             request: batch.request,
                         }
                     } else {
@@ -152,12 +156,13 @@ export class Ingest<R extends BatchRequest> {
     private buildBatchQuery(batch: Batch<R>, archiveHeight: number): string {
         let from = batch.range.from
         let to = Math.min(archiveHeight, rangeEnd(batch.range))
+        assert(from <= to)
 
         let req = batch.request
 
         let args: gw.BatchRequest = {
             fromBlock: from,
-            // toBlock: to,
+            toBlock: to,
         }
 
         args.logs = req.getLogs().map((l) => ({
@@ -203,26 +208,26 @@ const CONTEXT_NESTING_SHAPE = (() => {
             transaction,
         },
         transaction,
-    }
+    } as const
 })()
 
 function toGatewayFieldSelection(
-    selection: Record<string, any>,
-    req: any | undefined,
+    startSelection: gw.FieldSelection,
+    req: Record<string, any> | undefined,
     shape: Record<string, any>,
     subfield?: string
-): any | undefined {
+): gw.FieldSelection {
+    let selection = startSelection as any
     for (let key in req) {
         if (shape[key]) {
             if (req[key] === true) req[key] = FULL_REQUEST[key]
             if (selection[key] == null) selection[key] = gw.DEFAULT_SELECTION[key]
-            toGatewayFieldSelection(selection, req[key], shape[key], key)
+            selection = toGatewayFieldSelection(selection, req[key], shape[key], key)
         } else {
-            let s = subfield ? selection[subfield] : selection
-            s[key] = s[key] || req[key]
+            let o = subfield ? selection[subfield] : selection
+            o[key] = req[key]
         }
     }
-
     return selection
 }
 
@@ -293,7 +298,7 @@ function mapGatewayBlock(block: gw.BatchBlock): BlockData {
         }
     })
 
-    let {timestamp, number: height, nonce, size, ...hdr} = block.block
+    let {timestamp, number: height, nonce, size, gasLimit, gasUsed, ...hdr} = block.block
 
     return {
         header: {
@@ -302,6 +307,8 @@ function mapGatewayBlock(block: gw.BatchBlock): BlockData {
             timestamp: timestamp * 1000,
             nonce: BigInt(nonce),
             size: BigInt(size),
+            gasLimit: BigInt(gasLimit),
+            gasUsed: BigInt(gasUsed),
             ...hdr,
         },
         items: items,

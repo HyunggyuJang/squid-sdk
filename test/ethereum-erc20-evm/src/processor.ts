@@ -1,11 +1,11 @@
-import { BatchContext, BatchProcessorItem, EvmBatchProcessor, EvmBlock } from '@subsquid/evm-processor'
-import { Store, TypeormDatabase } from '@subsquid/typeorm-store'
-import { In } from 'typeorm'
+import {BatchContext, BatchProcessorItem, EvmBatchProcessor, EvmBlock} from '@subsquid/evm-processor'
+import {Store, TypeormDatabase} from '@subsquid/typeorm-store'
+import {In} from 'typeorm'
 import * as erc20 from './erc20'
-import { Account, Token, Transfer } from './model'
+import {Account, Token, Transfer} from './model'
 
 const processor = new EvmBatchProcessor().addLog('0xdac17f958d2ee523a2206206994597c13d831ec7', {
-    range: { from: 5_000_000 },
+    range: {from: 5_000_000},
     filter: [['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef']],
     data: {
         log: {
@@ -40,19 +40,19 @@ processor.run(new TypeormDatabase(), async (ctx) => {
 
     let accounts = new Map<string, Account>()
     for (let accountIdsBatch of splitIntoBatches([...accountIds], 10000)) {
-        await ctx.store.findBy(Account, { id: In(accountIdsBatch) }).then((as) => {
+        await ctx.store.findBy(Account, {id: In(accountIdsBatch)}).then((as) => {
             as.forEach((a) => accounts.set(a.id, a))
         })
     }
 
-    let tokens = await ctx.store.findBy(Token, { id: In([...tokenIds]) }).then((tokens) => {
+    let tokens = await ctx.store.findBy(Token, {id: In([...tokenIds])}).then((tokens) => {
         return new Map(tokens.map((t) => [t.id, t]))
     })
 
     let transfers: Transfer[] = []
 
     for (let t of transfersData) {
-        let { id, block, blockHash, timestamp, txHash, amount, gas } = t
+        let {id, block, blockHash, timestamp, txHash, amount, gas} = t
 
         let from = getAccount(accounts, t.fromId)
         let to = getAccount(accounts, t.toId)
