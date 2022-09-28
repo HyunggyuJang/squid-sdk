@@ -101,12 +101,12 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
     addLog<A extends string | ReadonlyArray<string>>(
         contractAddress: A,
         options?: LogOptions & NoDataSelection
-    ): EvmBatchProcessor<AddLogItem<Item, LogItem<A extends ReadonlyArray<infer I> ? I : A, true>>>
+    ): EvmBatchProcessor<AddLogItem<Item, LogItem<NormalizeAddress<A>, true>>>
 
     addLog<A extends string | ReadonlyArray<string>, R extends LogDataRequest>(
         contractAddress: A,
         options: LogOptions & DataSelection<R>
-    ): EvmBatchProcessor<AddLogItem<Item, LogItem<A extends ReadonlyArray<infer I> ? I : A, R>>>
+    ): EvmBatchProcessor<AddLogItem<Item, LogItem<NormalizeAddress<A>, R>>>
 
     addLog(
         contractAddress: string | string[],
@@ -394,22 +394,22 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
         handler: (ctx: BatchContext<any, Item>) => Promise<void>
     ): Promise<void> {
         for await (let batch of ingest.getBlocks()) {
-            if (batch.blocks.length == 0) return
-
             let log = this.getLogger()
             let mappingStartTime = process.hrtime.bigint()
             let blocks = batch.blocks
-
-            let from = Number(blocks[0].header.height)
-            let to = Number(last(blocks).header.height)
-            await db.transact(from, to, (store) => {
-                return handler({
-                    _chain: this.getChain(),
-                    log,
-                    store,
-                    blocks: blocks as any,
+            
+            if (batch.blocks.length != 0) {
+                let from = Number(blocks[0].header.height)
+                let to = Number(last(blocks).header.height)
+                await db.transact(from, to, (store) => {
+                    return handler({
+                        _chain: this.getChain(),
+                        log,
+                        store,
+                        blocks: blocks as any,
+                    })
                 })
-            })
+            }
 
             this.lastBlock = batch.range.to
             await db.advance(this.lastBlock)
@@ -460,7 +460,7 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
 }
 
 function getItemsCount(blocks: BlockData[]): number {
-    let count = 1
+    let count = 0
     for (let i = 0; i < blocks.length; i++) {
         count += blocks[i].items.length
     }
@@ -477,3 +477,5 @@ function randomString(len: number) {
 
     return result
 }
+
+type NormalizeAddress<T extends string | ReadonlyArray<string>> = Lowercase<T extends ReadonlyArray<infer R> ? R : T>

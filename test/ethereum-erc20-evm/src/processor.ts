@@ -6,7 +6,7 @@ import {Account, Token, Transfer} from './model'
 
 const processor = new EvmBatchProcessor().addLog('0xdac17f958d2ee523a2206206994597c13d831ec7', {
     range: {from: 5_000_000},
-    filter: [['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef']],
+    filter: [[erc20.events['Transfer(address,address,uint256)'].topic]],
     data: {
         log: {
             topics: true,

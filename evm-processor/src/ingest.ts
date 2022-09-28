@@ -58,7 +58,7 @@ export class Ingest<R extends BatchRequest> {
     async *getBlocks(): AsyncGenerator<DataBatch<R>> {
         while (this.batches.length) {
             if (this.fetchLoopIsStopped) {
-                this.fetchLoop()
+                this.fetchLoop().catch()
             }
             yield await assertNotNull(this.queue[0])
             this.queue.shift()
@@ -111,14 +111,8 @@ export class Ingest<R extends BatchRequest> {
 
                     let from = batch.range.from
                     let to: number
-                    if (blocks.length === 0 || last(blocks).header.height < rangeEnd(batch.range)) {
+                    if (response.nextBlock < rangeEnd(batch.range)) {
                         to = response.nextBlock - 1
-                        this.batches[0] = {
-                            range: {from: to + 1, to: batch.range.to},
-                            request: batch.request,
-                        }
-                    } else if (archiveHeight < rangeEnd(batch.range)) {
-                        to = archiveHeight
                         this.batches[0] = {
                             range: {from: to + 1, to: batch.range.to},
                             request: batch.request,
