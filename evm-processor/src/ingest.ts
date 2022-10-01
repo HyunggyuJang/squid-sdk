@@ -85,13 +85,7 @@ export class Ingest<R extends BatchRequest> {
                     ctx.archiveQuery = this.buildBatchQuery(batch, archiveHeight)
 
                     let fetchStartTime = process.hrtime.bigint()
-
-                    console.time('response')
                     let response = await this.options.archive.query(ctx.archiveQuery)
-                    console.timeEnd('response')
-
-                    console.log(response.metrics, response.data.length)
-
                     let fetchEndTime = process.hrtime.bigint()
 
                     ctx.batchBlocksFetched = response.data.length
