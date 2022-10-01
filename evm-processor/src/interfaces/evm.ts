@@ -21,13 +21,13 @@ export interface EvmBlock {
 
 export interface EvmTransaction {
     id: string
-    source: string
+    from: string
     gas: bigint
     gasPrice: bigint
     hash: string
     input: string
     nonce: bigint
-    dest?: string
+    to?: string
     index: number
     value: string
     kind: bigint

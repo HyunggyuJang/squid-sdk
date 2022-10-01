@@ -20,19 +20,19 @@ export type WithProp<K extends string, V> = [V] extends [never]
 
 type LogScalars<T = EvmLog> = Omit<T, 'transaction'>
 
-export type TransactionRequest = Omit<PlainReq<EvmTransaction>, 'id' | 'dest' | 'index'>
+export type TransactionRequest = Omit<PlainReq<EvmTransaction>, keyof TransactionDefaultRequest>
 
-export type LogRequest = Omit<PlainReq<LogScalars>, 'id' | 'address' | 'index'> & {
-    transaction?: TransactionRequest | boolean
+export type LogRequest = Omit<PlainReq<LogScalars>, keyof LogDefaultRequest> & {
+    transaction?: TransactionRequest
 }
 
 type TransactionFields<R extends TransactionRequest> = Select<EvmTransaction, R>
 
-export type TransactionType<R> = R extends true
+export type TransactionType<R, A = string> = (R extends true
     ? EvmTransaction
     : R extends TransactionRequest
     ? TransactionFields<R>
-    : never
+    : never) & {dest: A}
 
 type ApplyTransactionFields<R extends LogRequest> = R['transaction'] extends true
     ? {transaction: EvmTransaction}
@@ -40,23 +40,26 @@ type ApplyTransactionFields<R extends LogRequest> = R['transaction'] extends tru
     ? {transaction: TransactionFields<R['transaction']>}
     : {}
 
-type LogFields<R extends LogRequest> = Select<LogScalars, R> & ApplyTransactionFields<R>
+type LogFields<R extends LogRequest> = Select<LogScalars, R & LogDefaultRequest> & ApplyTransactionFields<R>
 
-type LogType<R, A = string> = (R extends true ? EvmLog : R extends LogRequest ? LogFields<R> : never) & {address: A}
+type LogType<R, A = string> = (R extends LogRequest ? LogFields<R> : LogFields<{}>) & {address: A}
 
 export interface LogDataRequest {
-    log?: boolean | LogRequest
+    evmLog?: LogRequest
 }
 
-export type LogData<R extends LogDataRequest = {log: true}, A = string> = WithProp<'log', LogType<R['log'], A>>
+export type LogData<R extends LogDataRequest = {evmLog: {}}, A = string> = WithProp<
+    'evmLog',
+    LogType<R['evmLog'], A>
+>
 
 export interface TransactionDataRequest {
-    transaction?: boolean | TransactionDataRequest
+    transaction?: TransactionRequest
 }
 
-export type TransactionData<R extends TransactionDataRequest = {transaction: true}> = WithProp<
+export type TransactionData<R extends TransactionDataRequest = {transaction: {}}, A = string> = WithProp<
     'transaction',
-    TransactionType<R['transaction']>
+    TransactionType<R['transaction'] & TransactionDefaultRequest, A>
 >
 
 type SetAddress<T, A> = Omit<T, 'address'> & {address: A}
@@ -66,30 +69,14 @@ type WithKind<K, T> = {kind: K} & {
     [P in keyof T]: T[P]
 }
 
-export type LogItem<Address, R = false> = WithKind<
-    'log',
-    SetItemAddress<
-        R extends true
-            ? LogData<{log: true}, Address>
-            : R extends LogDataRequest
-            ? LogData<R, Address>
-            : LogData<{log: {}}, Address>,
-        'log',
-        Address
-    >
+export type LogItem<Address, R extends LogDataRequest = {}> = WithKind<
+    'evmLog',
+    SetItemAddress<LogData<R, Address>, 'evmLog', Address>
 >
 
-export type TransactionItem<Address, R = false> = WithKind<
+export type TransactionItem<Address, R extends TransactionDataRequest = {}> = WithKind<
     'transaction',
-    SetItemAddress<
-        R extends true
-            ? TransactionData
-            : R extends TransactionDataRequest
-            ? TransactionData<R>
-            : TransactionData<{transaction: {}}>,
-        'log',
-        Address
-    >
+    SetItemAddress<TransactionData<R, Address>, 'transaction', Address>
 >
 
 export type ItemMerge<A, B, R> = [A] extends [never]
@@ -138,28 +125,39 @@ export interface MayBeDataSelection<R> {
     data?: R
 }
 
-export const FULL_REQUEST: Record<string, any> = {
+export const DEFAULT_REQUEST = {
     block: {
-        
+        id: true,
+        number: true,
+        hash: true,
+        parentHash: true,
+        nonce: true,
+        sha3Uncles: true,
+        logsBloom: true,
+        transactionsRoot: true,
+        stateRoot: true,
+        receiptsRoot: true,
+        miner: true,
+        difficulty: true,
+        totalDifficulty: true,
+        extraData: true,
+        size: true,
+        gasLimit: true,
+        gasUsed: true,
+        timestamp: true,
     },
-    log: {
-        data: true,
-        removed: true,
-        topics: true,
-        transaction: true,
+    evmLog: {
+        id: true,
+        address: true,
+        index: true,
+        transactionIndex: true,
     },
     transaction: {
-        source: true,
-        gas: true,
-        gasPrice: true,
-        hash: true,
-        input: true,
-        nonce: true,
-        value: true,
-        kind: true,
-        chainId: true,
-        v: true,
-        r: true,
-        s: true,
+        id: true,
+        to: true,
+        index: true,
     },
-}
+} as const
+
+type LogDefaultRequest = typeof DEFAULT_REQUEST.evmLog
+type TransactionDefaultRequest = typeof DEFAULT_REQUEST.transaction

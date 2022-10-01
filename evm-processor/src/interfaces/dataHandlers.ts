@@ -22,18 +22,14 @@ export interface CommonHandlerContext<S> {
 }
 
 type BlockLogsRequest = {
-    [name in string]?: boolean | {event: LogRequest}
+    [name in string]: {evmLog: LogRequest}
 }
 
-type BlockLogItem<R> = R extends true
-    ? LogItem<string, true>
-    : R extends BlockLogsRequest
-    ? ['*'] extends [keyof R]
-        ? [keyof R] extends ['*']
-            ? LogItem<string, R['*']>
-            : {[A in keyof R]: LogItem<A, R[A]>}[keyof R]
-        : {[A in keyof R]: LogItem<A, R[A]>}[keyof R] | LogItem<'*'>
-    : LogItem<string>
+type BlockLogItem<R extends BlockLogsRequest> = ['*'] extends [keyof R]
+    ? [keyof R] extends ['*']
+        ? LogItem<string, R['*']>
+        : {[A in keyof R]: LogItem<A, R[A]>}[keyof R]
+    : {[A in keyof R]: LogItem<A, R[A]>}[keyof R] | LogItem<'*'>
 
 interface BlockItemRequest {
     logs?: boolean | BlockLogsRequest
@@ -43,7 +39,7 @@ type BlockItem<R> = R extends true
     ? LogItem<true>
     : R extends BlockItemRequest
     ? LogItem<R['logs']>
-    : BlockLogItem<false>
+    : BlockLogItem<{}>
 
 export interface BlockHandlerDataRequest {
     includeAllBlocks?: boolean
@@ -65,9 +61,9 @@ export interface BlockHandler<S, R extends BlockHandlerDataRequest = {}> {
     (ctx: BlockHandlerContext<S, R>): Promise<void>
 }
 
-export type LogHandlerContext<S, R extends LogDataRequest = {log: true}> = CommonHandlerContext<S> & LogData<R>
+export type LogHandlerContext<S, R extends LogDataRequest = {evmLog: {}}> = CommonHandlerContext<S> & LogData<R>
 
-export interface LogHandler<S, R extends LogDataRequest = {log: true}> {
+export interface LogHandler<S, R extends LogDataRequest = {evmLog: {}}> {
     (ctx: LogHandlerContext<S, R>): Promise<void>
 }
 

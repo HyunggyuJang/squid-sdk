@@ -1,4 +1,4 @@
-import {BatchContext, BatchProcessorItem, EvmBatchProcessor, EvmBlock} from '@subsquid/evm-processor'
+import {BatchContext, BatchProcessorItem, EvmBatchProcessor, EvmBlock, LogHandlerContext} from '@subsquid/evm-processor'
 import {Store, TypeormDatabase} from '@subsquid/typeorm-store'
 import {In} from 'typeorm'
 import * as erc20 from './erc20'
@@ -8,7 +8,7 @@ const processor = new EvmBatchProcessor().addLog('0xdac17f958d2ee523a22062069945
     range: {from: 5_000_000},
     filter: [[erc20.events['Transfer(address,address,uint256)'].topic]],
     data: {
-        log: {
+        evmLog: {
             topics: true,
             data: true,
             transaction: {
@@ -103,8 +103,8 @@ function getTransfers(ctx: Ctx): TransferEvent[] {
     let transfers: TransferEvent[] = []
     for (let block of ctx.blocks) {
         for (let item of block.items) {
-            if (item.kind === 'log' && item.address === '0xdac17f958d2ee523a2206206994597c13d831ec7') {
-                const log = item.log
+            if (item.kind === 'evmLog' && item.address === '0xdac17f958d2ee523a2206206994597c13d831ec7') {
+                const log = item.evmLog
 
                 if (log.topics[0] === erc20.events['Transfer(address,address,uint256)'].topic) {
                     const data = erc20.events['Transfer(address,address,uint256)'].decode(log)

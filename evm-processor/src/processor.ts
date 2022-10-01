@@ -101,7 +101,7 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
     addLog<A extends string | ReadonlyArray<string>>(
         contractAddress: A,
         options?: LogOptions & NoDataSelection
-    ): EvmBatchProcessor<AddLogItem<Item, LogItem<NormalizeAddress<A>, true>>>
+    ): EvmBatchProcessor<AddLogItem<Item, LogItem<NormalizeAddress<A>, {}>>>
 
     addLog<A extends string | ReadonlyArray<string>, R extends LogDataRequest>(
         contractAddress: A,

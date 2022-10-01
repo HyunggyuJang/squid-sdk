@@ -118,13 +118,13 @@ export const FULL_SELECTION = {
         transactionIndex: true,
     },
     transaction: {
-        source: true,
+        from: true,
         gas: true,
         gasPrice: true,
         hash: true,
         input: true,
         nonce: true,
-        dest: true,
+        to: true,
         index: true,
         value: true,
         kind: true,
@@ -132,36 +132,5 @@ export const FULL_SELECTION = {
         v: true,
         r: true,
         s: true,
-    },
-}
-
-export const DEFAULT_SELECTION: Record<string, any> = {
-    block: {
-        number: true,
-        hash: true,
-        parentHash: true,
-        nonce: true,
-        sha3Uncles: true,
-        logsBloom: true,
-        transactionsRoot: true,
-        stateRoot: true,
-        receiptsRoot: true,
-        miner: true,
-        difficulty: true,
-        totalDifficulty: true,
-        extraData: true,
-        size: true,
-        gasLimit: true,
-        gasUsed: true,
-        timestamp: true,
-    },
-    log: {
-        address: true,
-        index: true,
-        transactionIndex: true,
-    },
-    transaction: {
-        dest: true,
-        index: true,
     },
 }

@@ -6,14 +6,14 @@ import * as gw from './interfaces/gateway'
 import {EvmBlock, EvmLog, EvmTransaction} from './interfaces/evm'
 import {addErrorContext, withErrorContext} from './util/misc'
 import {Range, rangeEnd} from './util/range'
-import {FULL_REQUEST} from './interfaces/dataSelection'
+import {DEFAULT_REQUEST as _DEFAULT_REQUEST} from './interfaces/dataSelection'
 import {ArchiveClient, statusToHeight} from './archive'
 
 export type Item =
     | {
-          kind: 'log'
+          kind: 'evmLog'
           address: string
-          log: EvmLog
+          evmLog: EvmLog
       }
     | {
           kind: 'transaction'
@@ -161,7 +161,7 @@ export class Ingest<R extends BatchRequest> {
         args.logs = req.getLogs().map((l) => ({
             address: l.address,
             topics: l.topics || [],
-            fieldSelection: toGatewayFieldSelection({block: gw.DEFAULT_SELECTION.block}, l.data, CONTEXT_NESTING_SHAPE),
+            fieldSelection: toGatewayFieldSelection({}, {block: {}, ...l.data}, CONTEXT_NESTING_SHAPE),
         }))
 
         return JSON.stringify(args)
@@ -196,13 +196,23 @@ export class Ingest<R extends BatchRequest> {
 
 const CONTEXT_NESTING_SHAPE = (() => {
     let transaction = {}
+    let block = {}
     return {
-        log: {
+        evmLog: {
             transaction,
         },
         transaction,
-    } as const
+        block,
+    }
 })()
+
+const REQUEST_TO_GATEWAY: Record<string, string> = {
+    block: 'block',
+    evmLog: 'log',
+    transaction: 'transaction',
+}
+
+const DEFAULT_REQUEST: Record<string, any> = _DEFAULT_REQUEST
 
 function toGatewayFieldSelection(
     startSelection: gw.FieldSelection,
@@ -211,14 +221,18 @@ function toGatewayFieldSelection(
     subfield?: string
 ): gw.FieldSelection {
     let selection = startSelection as any
-    for (let key in req) {
-        if (shape[key]) {
-            if (req[key] === true) req[key] = FULL_REQUEST[key]
-            if (selection[key] == null) selection[key] = gw.DEFAULT_SELECTION[key]
-            selection = toGatewayFieldSelection(selection, req[key], shape[key], key)
+    if (subfield && selection[subfield] == null) selection[subfield] = {}
+    for (let reqKey in req) {
+        if (shape[reqKey]) {
+            let selectKey = REQUEST_TO_GATEWAY[reqKey]
+            assert(typeof req[reqKey] === 'object')
+            if (selection[selectKey] == null) {
+                toGatewayFieldSelection(selection, DEFAULT_REQUEST[reqKey], shape[reqKey], selectKey)
+            }
+            toGatewayFieldSelection(selection, req[reqKey], shape[reqKey], selectKey)
         } else {
             let o = subfield ? selection[subfield] : selection
-            o[key] = req[key]
+            o[reqKey] = req[reqKey]
         }
     }
     return selection
@@ -237,55 +251,56 @@ function tryMapGatewayBlock(block: gw.BatchBlock): BlockData {
 
 function mapGatewayBlock(block: gw.BatchBlock): BlockData {
     let logs = createObjects<gw.Log, EvmLog>(block.logs, (go) => {
-        let {logIndex: index, ...log} = go as any
+        let log = go as any
         return {
-            id: `${block.block.number}-${index}-${block.block.hash.slice(3, 7)}`,
-            index,
+            id: createId(block.block.number, block.block.hash, log.index),
             ...log,
         }
     })
 
     let transactions = createObjects<gw.Transaction, EvmTransaction>(block.transactions, (go) => {
-        let {transactionIndex: index, ...transaction} = go as any
-        return {
-            id: `${block.block.number}-${index}-${block.block.hash.slice(3, 7)}`,
-            index,
+        let {gas, gasPrice, ...transaction} = go as any
+        let o = {
+            id: createId(block.block.number, block.block.hash, transaction.index),
             ...transaction,
         }
+        gas != null && (o.gas = BigInt(gas))
+        gasPrice != null && (o.gasPrice = BigInt(gasPrice))
+        return o
     })
 
     let items: Item[] = []
 
     for (let go of block.logs) {
-        let log = assertNotNull(logs.get((go as any).logIndex)) as EvmLog
-        log.transaction = transactions.get(go.transactionIndex) as EvmTransaction
+        let evmLog = assertNotNull(logs.get(go.index)) as EvmLog
+        evmLog.transaction = transactions.get(go.transactionIndex) as EvmTransaction
         items.push({
-            kind: 'log',
-            address: log.address,
-            log,
+            kind: 'evmLog',
+            address: evmLog.address,
+            evmLog,
         })
     }
 
     for (let go of block.transactions) {
-        let transaction = assertNotNull(transactions.get((go as any).transactionIndex)) as EvmTransaction
+        let transaction = assertNotNull(transactions.get(go.index)) as EvmTransaction
         items.push({
             kind: 'transaction',
-            address: transaction.dest,
+            address: transaction.from,
             transaction,
         })
     }
 
     items.sort((a, b) => {
-        if (a.kind === 'log' && b.kind === 'log') {
-            return Number(a.log.transactionIndex + a.log.index - b.log.transactionIndex - b.log.index)
+        if (a.kind === 'evmLog' && b.kind === 'evmLog') {
+            return Number(a.evmLog.transactionIndex + a.evmLog.index - b.evmLog.transactionIndex - b.evmLog.index)
         } else if (a.kind === 'transaction' && b.kind === 'transaction') {
             return Number(a.transaction.index - b.transaction.index)
         } else {
             return Number(
-                a.kind === 'log' && b.kind === 'transaction'
-                    ? a.log.transactionIndex - b.transaction.index
-                    : a.kind === 'transaction' && b.kind === 'log'
-                    ? a.transaction.index - b.log.transactionIndex
+                a.kind === 'evmLog' && b.kind === 'transaction'
+                    ? a.evmLog.transactionIndex - b.transaction.index
+                    : a.kind === 'transaction' && b.kind === 'evmLog'
+                    ? a.transaction.index - b.evmLog.transactionIndex
                     : 0
             )
         }
@@ -315,6 +330,14 @@ function createObjects<S, T extends {index: number}>(src: S[], f: (s: S) => Part
         m.set(obj.index, obj)
     }
     return m
+}
+
+function createId(height: number, hash: string, index?: number) {
+    if (index == null) {
+        return `${height}-${hash.slice(3, 11)}`
+    } else {
+        return `${height}-${index}-${hash.slice(3, 11)}`
+    }
 }
 
 type PartialObj<T> = Partial<T> & {index: bigint}
