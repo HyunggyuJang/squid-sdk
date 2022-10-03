@@ -257,7 +257,7 @@ function mapGatewayBlock(block: gw.BatchBlock): BlockData {
         let transaction = assertNotNull(transactions.get(go.index)) as EvmTransaction
         items.push({
             kind: 'transaction',
-            address: transaction.from,
+            address: transaction.to,
             transaction,
         })
     }
