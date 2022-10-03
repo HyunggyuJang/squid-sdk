@@ -6,7 +6,7 @@ import {Batch, mergeBatches, applyRangeBound, getBlocksCount} from './batch/gene
 import {PlainBatchRequest, BatchRequest} from './batch/request'
 import {Chain} from './chain'
 import {BlockData, Ingest} from './ingest'
-import {LogOptions} from './interfaces/dataHandlers'
+import {BatchHandlerContext, LogOptions} from './interfaces/dataHandlers'
 import {
     LogItem,
     TransactionItem,
@@ -17,7 +17,6 @@ import {
     MayBeDataSelection,
 } from './interfaces/dataSelection'
 import {Database} from './interfaces/db'
-import {EvmBlock} from './interfaces/evm'
 import {Metrics} from './metrics'
 import {withErrorContext, timeInterval} from './util/misc'
 import {Range} from './util/range'
@@ -46,32 +45,6 @@ export interface DataSource {
 export type BatchProcessorItem<T> = T extends EvmBatchProcessor<infer I> ? I : never
 export type BatchProcessorLogItem<T> = Extract<BatchProcessorItem<T>, {kind: 'event'}>
 export type BatchProcessorTransactionItem<T> = Extract<BatchProcessorItem<T>, {kind: 'transaction'}>
-
-export interface BatchContext<Store, Item> {
-    /**
-     * Not yet public description of chain metadata
-     * @internal
-     */
-    _chain: Chain
-    log: Logger
-    store: Store
-    blocks: BatchBlock<Item>[]
-}
-
-export interface BatchBlock<Item> {
-    /**
-     * Block header
-     */
-    header: EvmBlock
-    /**
-     * A unified log of events and calls.
-     *
-     * All events deposited within a call are placed
-     * before the call. All child calls are placed before the parent call.
-     * List of block events is a subsequence of unified log.
-     */
-    items: Item[]
-}
 
 /**
  * Provides methods to configure and launch data processing.
@@ -163,6 +136,12 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
         return this
     }
 
+    setDataBase(src: DataSource): this {
+        this.assertNotRunning()
+        this.src = src
+        return this
+    }
+
     private assertNotRunning(): void {
         if (this.running) {
             throw new Error('Settings modifications are not allowed after start of processing')
@@ -202,7 +181,7 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
      *
      * @param handler - The data handler, see {@link BatchContext} for an API available to the handler.
      */
-    run<Store>(db: Database<Store>, handler: (ctx: BatchContext<Store, Item>) => Promise<void>): void {
+    run<Store>(db: Database<Store>, handler: (ctx: BatchHandlerContext<Store, Item>) => Promise<void>): void {
         this.running = true
         runProgram(
             async () => {
@@ -391,7 +370,7 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
     private async process(
         db: Database<any>,
         ingest: Ingest<BatchRequest>,
-        handler: (ctx: BatchContext<any, Item>) => Promise<void>
+        handler: (ctx: BatchHandlerContext<any, Item>) => Promise<void>
     ): Promise<void> {
         for await (let batch of ingest.getBlocks()) {
             let log = this.getLogger()
