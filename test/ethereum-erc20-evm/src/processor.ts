@@ -11,10 +11,10 @@ const processor = new EvmBatchProcessor().addLog('0xdac17f958d2ee523a22062069945
         evmLog: {
             topics: true,
             data: true,
-            transaction: {
-                gas: true,
-                hash: true,
-            },
+        },
+        transaction: {
+            gas: true,
+            hash: true,
         },
     },
 })
@@ -105,6 +105,7 @@ function getTransfers(ctx: Ctx): TransferEvent[] {
         for (let item of block.items) {
             if (item.kind === 'evmLog' && item.address === '0xdac17f958d2ee523a2206206994597c13d831ec7') {
                 const log = item.evmLog
+                const transaction = item.transaction
 
                 if (log.topics[0] === erc20.events['Transfer(address,address,uint256)'].topic) {
                     const data = erc20.events['Transfer(address,address,uint256)'].decode(log)
@@ -113,11 +114,11 @@ function getTransfers(ctx: Ctx): TransferEvent[] {
                         block: block.header.height,
                         blockHash: block.header.hash,
                         timestamp: new Date(block.header.timestamp),
-                        txHash: log.transaction.hash,
+                        txHash: transaction.hash,
                         fromId: data.from,
                         toId: data.to,
                         amount: data.value.toBigInt(),
-                        gas: log.transaction.gas,
+                        gas: transaction.gas,
                         tokenId: log.address,
                     })
                 }

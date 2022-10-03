@@ -26,9 +26,9 @@ export interface LogRequest {
 }
 
 export interface FieldSelection {
-    block?: BlockFieldSelection
-    transaction?: TransactionFieldSelection
-    log?: LogFieldSelection
+    block?: BlockFieldSelection | null
+    transaction?: TransactionFieldSelection | null
+    log?: LogFieldSelection | null
 }
 
 export type BlockFieldSelection = {[P in keyof Block]?: true}
@@ -58,18 +58,18 @@ export interface Block {
 }
 
 export interface Transaction {
-    source: string
+    from: string
     gas: string
     gasPrice: string
     hash: string
     input: string
     nonce: string
-    dest?: string
+    to?: string
     index: number
     value: string
-    kind: string
-    chainId: string
-    v: string
+    type: number
+    chainId: number
+    v: number
     r: string
     s: string
 }

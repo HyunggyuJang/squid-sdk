@@ -258,7 +258,7 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
         let id = this.getId()
 
         class ProcessorArchiveClient extends ArchiveClient {
-            constructor(){
+            constructor() {
                 super({
                     url,
                     id,
@@ -274,7 +274,7 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
                             },
                             'retry'
                         )
-                    }
+                    },
                 })
             }
 
@@ -397,7 +397,7 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
             let log = this.getLogger()
             let mappingStartTime = process.hrtime.bigint()
             let blocks = batch.blocks
-            
+
             if (batch.blocks.length != 0) {
                 let from = Number(blocks[0].header.height)
                 let to = Number(last(blocks).header.height)
