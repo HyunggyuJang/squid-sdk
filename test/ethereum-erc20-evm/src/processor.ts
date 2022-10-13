@@ -1,4 +1,10 @@
-import {BatchContext, BatchProcessorItem, EvmBatchProcessor, EvmBlock, LogHandlerContext} from '@subsquid/evm-processor'
+import {
+    BatchHandlerContext,
+    BatchProcessorItem,
+    EvmBatchProcessor,
+    EvmBlock,
+    LogHandlerContext,
+} from '@subsquid/evm-processor'
 import {Store, TypeormDatabase} from '@subsquid/typeorm-store'
 import {In} from 'typeorm'
 import * as erc20 from './erc20'
@@ -25,7 +31,7 @@ processor.setDataSource({
 })
 
 type Item = BatchProcessorItem<typeof processor>
-type Ctx = BatchContext<Store, Item>
+type Ctx = BatchHandlerContext<Store, Item>
 
 processor.run(new TypeormDatabase(), async (ctx) => {
     let transfersData = getTransfers(ctx)

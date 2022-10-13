@@ -16,7 +16,8 @@ export interface StatusResponse {
 export interface BatchRequest {
     fromBlock: number
     toBlock?: number
-    logs?: LogRequest[]
+    logs: LogRequest[]
+    transactions: any[]
 }
 
 export interface LogRequest {
@@ -54,7 +55,7 @@ export interface Block {
     size: string
     gasLimit: string
     gasUsed: string
-    timestamp: number
+    timestamp: string
 }
 
 export interface Transaction {
@@ -66,10 +67,10 @@ export interface Transaction {
     nonce: string
     to?: string
     index: number
-    value: string
+    value: bigint
     type: number
     chainId: number
-    v: number
+    v: string
     r: string
     s: string
 }

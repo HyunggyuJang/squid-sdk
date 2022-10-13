@@ -29,10 +29,10 @@ export interface EvmTransaction {
     nonce: bigint
     to?: string
     index: number
-    value: string
+    value: bigint
     type: number
     chainId: number
-    v: number
+    v: bigint
     r: string
     s: string
 }
