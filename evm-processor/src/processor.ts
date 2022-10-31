@@ -1,7 +1,5 @@
 import {Logger, createLogger} from '@subsquid/logger'
-import {ResilientRpcClient} from '@subsquid/rpc-client/lib/resilient'
 import {runProgram, last, def, wait} from '@subsquid/util-internal'
-import {ArchiveClient, Request} from './archive'
 import {Batch, mergeBatches, applyRangeBound, getBlocksCount} from './batch/generic'
 import {PlainBatchRequest, BatchRequest} from './batch/request'
 import {Chain} from './chain'
@@ -20,8 +18,10 @@ import {
 } from './interfaces/dataSelection'
 import {Database} from './interfaces/db'
 import {Metrics} from './metrics'
+import {JSONClient, Request} from './util/json'
 import {withErrorContext, timeInterval} from './util/misc'
 import {Range} from './util/range'
+import {RpcClient} from './util/rpc'
 
 export interface DataSource {
     /**
@@ -256,18 +256,17 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
     }
 
     @def
-    protected archiveClient(): ArchiveClient {
+    protected archiveClient(): JSONClient {
         let url = this.getArchiveEndpoint()
         let log = this.getLogger().child('archive', {url})
         let counter = 0
         let metrics = this.metrics
         let id = this.getId()
 
-        class ProcessorArchiveClient extends ArchiveClient {
+        class ArchiveClient extends JSONClient {
             constructor() {
                 super({
                     url,
-                    id,
                     onRetry(err, query, errorsInRow, backoff) {
                         metrics.registerArchiveRetry(url, errorsInRow)
                         log.warn(
@@ -284,7 +283,8 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
                 })
             }
 
-            protected async request<T>(req: Request): Promise<T> {
+            async request<T>(req: Request): Promise<T> {
+                counter = (counter + 1) % 10000
                 log.debug(
                     {
                         archiveUrl: url,
@@ -293,6 +293,7 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
                     },
                     'request'
                 )
+                req.headers = {...req.headers, 'x-squid-id': id}
                 let result: T = await super.request(req)
                 metrics.registerArchiveResponse(url)
                 log.debug(
@@ -308,17 +309,17 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
             }
         }
 
-        return new ProcessorArchiveClient()
+        return new ArchiveClient()
     }
 
     @def
-    protected chainClient(): ResilientRpcClient {
+    protected chainClient(): RpcClient {
         let url = this.getChainEndpoint()
         let log = this.getLogger().child('chain-rpc', {url})
         let metrics = this.metrics
         let counter = 0
 
-        class ChainClient extends ResilientRpcClient {
+        class ChainClient extends RpcClient {
             constructor() {
                 super({
                     url,

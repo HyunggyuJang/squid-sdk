@@ -4,10 +4,10 @@ import type {Batch} from './batch/generic'
 import {BatchRequest} from './batch/request'
 import * as gw from './interfaces/gateway'
 import {EvmBlock, EvmLog, EvmTransaction} from './interfaces/evm'
-import {addErrorContext, withErrorContext} from './util/misc'
+import {addErrorContext, statusToHeight, withErrorContext} from './util/misc'
 import {Range, rangeEnd} from './util/range'
 import {DEFAULT_REQUEST} from './interfaces/dataSelection'
-import {ArchiveClient, statusToHeight} from './archive'
+import {JSONClient} from './util/json'
 
 export type Item =
     | {
@@ -39,7 +39,7 @@ export interface DataBatch<R> {
 }
 
 export interface IngestOptions<R> {
-    archive: ArchiveClient
+    archive: JSONClient
     archivePollIntervalMS?: number
     batches: Batch<R>[]
 }
@@ -86,7 +86,11 @@ export class Ingest<R extends BatchRequest> {
                     ctx.archiveQuery = this.buildBatchQuery(batch, archiveHeight)
 
                     let fetchStartTime = process.hrtime.bigint()
-                    let response = await this.options.archive.query(ctx.archiveQuery)
+                    let response: gw.QueryResponse = await this.options.archive.request({
+                        path: '/query',
+                        query: ctx.archiveQuery,
+                        method: 'POST',
+                    })
                     let fetchEndTime = process.hrtime.bigint()
 
                     ctx.batchBlocksFetched = response.data.length
@@ -183,8 +187,11 @@ export class Ingest<R extends BatchRequest> {
     }
 
     async fetchArchiveHeight(): Promise<number> {
-        let res = await this.options.archive.getHeight()
-        this.setArchiveHeight(res)
+        let res: gw.StatusResponse = await this.options.archive.request({
+            path: '/status',
+            method: 'GET',
+        })
+        this.setArchiveHeight(statusToHeight(res))
         return this.archiveHeight
     }
 
