@@ -154,7 +154,11 @@ export class Ingest<R extends BatchRequest> {
             fieldSelection: toGatewayFieldSelection(l.data),
         }))
 
-        let transactions: any[] = []
+        let transactions = req.getTransactions().map((t) => ({
+            address: t.address,
+            sighash: t.sighash,
+            fieldSelection: toGatewayFieldSelection(t.data),
+        }))
 
         let args: gw.BatchRequest = {
             fromBlock: from,
@@ -238,11 +242,11 @@ function mapGatewayBlock(block: gw.BatchBlock): BlockData {
             id: createId(block.block.number, block.block.hash, tx.index),
             ...tx,
         }
-        gas && (transaction.gas = BigInt(gas))
-        gasPrice && (transaction.gasPrice = BigInt(gasPrice))
-        nonce && (transaction.nonce = BigInt(nonce))
-        value && (transaction.value = BigInt(value))
-        v && (transaction.v = BigInt(v))
+        if (gas != null) transaction.gas = BigInt(gas)
+        if (gasPrice != null) transaction.gasPrice = BigInt(gasPrice)
+        if (nonce != null) transaction.nonce = BigInt(nonce)
+        if (value != null) transaction.value = BigInt(value)
+        if (v != null) transaction.v = BigInt(v)
         return transaction
     })
 

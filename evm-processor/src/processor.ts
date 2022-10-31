@@ -6,7 +6,7 @@ import {Batch, mergeBatches, applyRangeBound, getBlocksCount} from './batch/gene
 import {PlainBatchRequest, BatchRequest} from './batch/request'
 import {Chain} from './chain'
 import {BlockData, Ingest} from './ingest'
-import {BatchHandlerContext, LogOptions} from './interfaces/dataHandlers'
+import {BatchHandlerContext, LogOptions, TransactionOptions} from './interfaces/dataHandlers'
 import {
     LogItem,
     TransactionItem,
@@ -15,6 +15,8 @@ import {
     LogDataRequest,
     DataSelection,
     MayBeDataSelection,
+    AddTransactionItem,
+    TransactionDataRequest,
 } from './interfaces/dataSelection'
 import {Database} from './interfaces/db'
 import {Metrics} from './metrics'
@@ -90,6 +92,31 @@ export class EvmBatchProcessor<Item extends {kind: string; address: string} = Lo
         req.logs.push({
             address: Array.isArray(contractAddress) ? contractAddress : [contractAddress],
             topics: options?.filter,
+            data: options?.data,
+        })
+        this.add(req, options?.range)
+        return this
+    }
+
+    addTransaction<A extends string | ReadonlyArray<string>>(
+        contractAddress: A,
+        options?: TransactionOptions & NoDataSelection
+    ): EvmBatchProcessor<AddTransactionItem<Item, TransactionItem>>
+
+    addTransaction<R extends TransactionDataRequest>(
+        contractAddress: string | string[],
+        options: TransactionOptions & DataSelection<R>
+    ): EvmBatchProcessor<AddTransactionItem<Item, TransactionItem<R>>>
+
+    addTransaction(
+        contractAddress: string | string[],
+        options?: TransactionOptions & MayBeDataSelection<TransactionDataRequest>
+    ): EvmBatchProcessor<any> {
+        this.assertNotRunning()
+        let req = new PlainBatchRequest()
+        req.transactions.push({
+            address: Array.isArray(contractAddress) ? contractAddress : [contractAddress],
+            sighash: options?.sighash,
             data: options?.data,
         })
         this.add(req, options?.range)
