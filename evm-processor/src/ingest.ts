@@ -109,15 +109,13 @@ export class Ingest<R extends BatchRequest> {
                     }
 
                     let from = batch.range.from
-                    let to: number
-                    if (response.nextBlock < rangeEnd(batch.range)) {
-                        to = response.nextBlock - 1
+                    let to = response.batch.nextBlock - 1
+                    if (to < rangeEnd(batch.range)) {
                         this.batches[0] = {
-                            range: {from: response.nextBlock, to: batch.range.to},
-                            request: batch.request,
+                            range: {from: to + 1, to: batch.range.to},
+                            request: batch.request
                         }
                     } else {
-                        to = assertNotNull(batch.range.to)
                         this.batches.shift()
                     }
 
