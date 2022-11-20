@@ -4,7 +4,7 @@ export interface QueryResponse {
     data: BatchBlock[][]
     metrics: any
     nextBlock: number
-    archive_height: number
+    archiveHeight: number
 }
 
 export interface BatchRequest {

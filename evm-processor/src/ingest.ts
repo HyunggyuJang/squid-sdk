@@ -95,7 +95,7 @@ export class Ingest<R extends BatchRequest> {
 
                     ctx.batchBlocksFetched = response.data.length
 
-                    assert(response.archive_height >= archiveHeight)
+                    assert(response.archiveHeight >= archiveHeight)
                     this.setArchiveHeight(archiveHeight)
 
                     let blocks = response.data
