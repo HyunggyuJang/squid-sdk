@@ -1,16 +1,10 @@
 import {EvmTopicSet} from './dataHandlers'
 
 export interface QueryResponse {
-    status: StatusResponse
     data: BatchBlock[][]
     metrics: any
     nextBlock: number
-}
-
-export interface StatusResponse {
-    parquetBlockNumber: number
-    dbMaxBlockNumber: number
-    dbMinBlockNumber: number
+    archive_height: number
 }
 
 export interface BatchRequest {

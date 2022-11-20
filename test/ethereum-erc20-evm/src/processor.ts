@@ -26,7 +26,7 @@ const processor = new EvmBatchProcessor().addLog('0xdac17f958d2ee523a22062069945
 })
 
 processor.setDataSource({
-    archive: 'https://eth-test.archive.subsquid.io',
+    archive: 'https://eth-stage1.archive.subsquid.io',
     chain: 'wss://mainnet.infura.io/ws/v3/c8458927a73148cfab30014f6e422bb3',
 })
 
